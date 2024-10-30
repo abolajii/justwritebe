@@ -1,16 +1,16 @@
 require("dotenv").config();
 const express = require("express");
-const postRoutes = require("./src/routes/postRoutes");
-const authRoutes = require("./src/routes/authRoutes");
+const postRoutes = require("./routes/postRoutes");
+const authRoutes = require("./routes/authRoutes");
 const mongoose = require("mongoose");
-const userRoutes = require("./src/routes/userRoutes");
+const userRoutes = require("./routes/userRoutes");
 const fileUpload = require("express-fileupload");
 const app = express();
 const port = process.env.PORT || 3000;
 const path = require("path");
 
 const cors = require("cors");
-const { requestLogger } = require("./src/middleware");
+const { requestLogger } = require("./middleware");
 
 app.use("/uploads", express.static(path.join(__dirname, "src", "/uploads")));
 
@@ -28,7 +28,7 @@ app.use(requestLogger);
 app.get("/", (req, res) => {
   res
     .status(200)
-    .json({ message: "Hello, JavaScript with Express on Vercel Edited!" });
+    .json({ message: "Hello, JavaScript with Express on Vercel!" });
 });
 
 app.use("/api/v1", authRoutes);
