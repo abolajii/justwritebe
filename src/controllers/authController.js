@@ -3,6 +3,15 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User"); // Assuming you have a User model
 const path = require("path");
 const fs = require("fs");
+
+const ImageKit = require("imagekit");
+
+const imagekit = new ImageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+  urlEndpoint: `https://ik.imagekit.io/${process.env.IMAGEKIT_ID}`,
+});
+
 // Register a new user
 exports.register = async (req, res) => {
   const { username, name, email, password } = req.body;
@@ -24,51 +33,32 @@ exports.register = async (req, res) => {
       username,
       name,
       email,
-      password: hashedPassword, // Store hashed password
+      password: hashedPassword,
     });
 
     if (profilePic) {
-      // Get the current date for the folder structure
-      const currentDate = new Date();
-      const formattedDate = `${currentDate.getFullYear()}-${(
-        currentDate.getMonth() + 1
-      )
-        .toString()
-        .padStart(2, "0")}-${currentDate
-        .getDate()
-        .toString()
-        .padStart(2, "0")}`;
+      // Upload the profile picture to ImageKit
+      const uploadResponse = await imagekit.upload({
+        file: profilePic.data.toString("base64"), // base64 encoded string
+        fileName: `${username}_${Date.now()}`, // A unique file name
+        folder: `/profile_pics/${username}`, // Optional folder path in ImageKit
+      });
 
-      // Generate the upload path based on the current date
-      const uploadDir = path.join(
-        __dirname,
-        `../uploads/${username}`,
-        formattedDate
-      );
-
-      // Create the directory if it does not exist
-      fs.mkdirSync(uploadDir, { recursive: true });
-
-      const uploadedFile = req.files.profilePic;
-      const filePath = path.join(uploadDir, uploadedFile.name); // Remove the username from the file path
-
-      // Move the uploaded file to the desired directory
-      await uploadedFile.mv(filePath);
-
-      // Set the imageUrl to the path where the image is accessible
-      newUser.profilePic = `/uploads/${username}/${formattedDate}/${uploadedFile.name}`;
+      // Set the profile picture URL from ImageKit's response
+      newUser.profilePic = uploadResponse.url;
     }
 
+    // Save the user in the database
     await newUser.save();
 
     // Generate a token for the user
     const token = jwt.sign(
       { id: newUser._id, username: newUser.username },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" } // Token expires in 1 hour
+      { expiresIn: "1d" }
     );
 
-    // Send back token and user details
+    // Send back the token and user details
     res.status(201).json({
       message: "User registered successfully",
       token,
@@ -77,6 +67,7 @@ exports.register = async (req, res) => {
         username: newUser.username,
         name: newUser.name,
         email: newUser.email,
+        profilePic: newUser.profilePic,
       },
     });
   } catch (error) {
