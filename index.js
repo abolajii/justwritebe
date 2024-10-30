@@ -25,6 +25,12 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(requestLogger);
 
+app.get("/", (req, res) => {
+  res
+    .status(200)
+    .json({ message: "Hello, JavaScript with Express on Vercel Edited!" });
+});
+
 app.use("/api/v1", authRoutes);
 app.use("/api/v1", postRoutes);
 app.use("/api/v1", userRoutes);
