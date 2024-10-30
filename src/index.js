@@ -39,10 +39,10 @@ app.use("/api/v1", userRoutes);
 mongoose
   .connect(process.env.URI)
   .then(() => {
-    console.log("MongoDB connected");
-    // app.listen(port, () => {
-    //   console.log(`Server running on port ${port}`);
-    // });
+    console.log("MongoDB connected now");
+    app.listen(port, () => {
+      console.log(`Server running on port ${port}`);
+    });
   })
   .catch((err) => console.error(err));
 
