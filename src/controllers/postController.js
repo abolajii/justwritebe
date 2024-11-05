@@ -6,6 +6,14 @@ const Comment = require("../models/Comment");
 const TrendingWord = require("../models/TrendingWord");
 const { createNotification } = require("../utils");
 
+const ImageKit = require("imagekit");
+
+const imagekit = new ImageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+  urlEndpoint: `https://ik.imagekit.io/${process.env.IMAGEKIT_ID}`,
+});
+
 // Helper function to update trending word count
 const updateTrendingWords = async (text) => {
   // Normalize the text (case insensitive)
@@ -62,40 +70,15 @@ exports.createPost = async (req, res) => {
 
   try {
     if (req.files && req.files.imagePost) {
-      //     // Get the current date for the folder structure
-      const currentDate = new Date();
-
-      const formattedDate = `${currentDate.getFullYear()}-${(
-        currentDate.getMonth() + 1
-      )
-        .toString()
-        .padStart(2, "0")}-${currentDate
-        .getDate()
-        .toString()
-        .padStart(2, "0")}`;
-
-      //     // Generate the upload path based on the current date and post ID
-      const uploadDir = path.join(
-        __dirname,
-        `../uploads/posts/${post._id}`,
-        formattedDate
-      );
-
-      //     console.log(req.files.imagePost);
-
-      //     // Create the directory if it does not exist
-      fs.mkdirSync(uploadDir, { recursive: true });
-
-      const uploadedFile = req.files.imagePost;
-      const filePath = path.join(uploadDir, uploadedFile.name);
-
-      //     // Move the uploaded file to the desired directory
-      await uploadedFile.mv(filePath);
-
+      const uploadResponse = await imagekit.upload({
+        file: req.files.imagePost.data.toString("base64"), // base64 encoded string
+        fileName: `${username}_${Date.now()}`, // A unique file name
+        folder: `/posts/${post._id}`, // Optional folder path in ImageKit
+      });
       //     // Set the imageUrl to the path where the image is accessible
-      post.imageUrl = `/uploads/posts/${post._id}/${formattedDate}/${uploadedFile.name}`;
+      post.imageUrl = uploadResponse.url;
     }
-    await updateTrendingWords(content);
+    // await updateTrendingWords(content);
     await post.save();
 
     // Populate the fields according to the structure you specified
