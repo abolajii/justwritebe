@@ -72,7 +72,7 @@ exports.createPost = async (req, res) => {
     if (req.files && req.files.imagePost) {
       const uploadResponse = await imagekit.upload({
         file: req.files.imagePost.data.toString("base64"), // base64 encoded string
-        fileName: `${username}_${Date.now()}`, // A unique file name
+        fileName: `${post._id}_${Date.now()}`, // A unique file name
         folder: `/posts/${post._id}`, // Optional folder path in ImageKit
       });
       //     // Set the imageUrl to the path where the image is accessible
