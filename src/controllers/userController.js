@@ -19,7 +19,6 @@ exports.getCurrentUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
     const postCount = await Post.countDocuments({ user: decoded.id });
-    console.log(postCount);
 
     // res.status(200).json(user);
     // Send user data along with post count
@@ -227,5 +226,24 @@ exports.readNotification = async (req, res) => {
   } catch (error) {
     console.error("Error reading notification:", error);
     res.status(500).json({ message: "Failed to mark notification as read" });
+  }
+};
+
+exports.getSingleUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Find the user by ID and populate their posts
+    const user = await User.findById(userId).populate("posts"); // Populating posts field
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Send the user data along with their posts
+    res.status(200).json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
