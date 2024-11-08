@@ -230,7 +230,7 @@ exports.readNotification = async (req, res) => {
 };
 
 exports.getSingleUser = async (req, res) => {
-  const userId = req.params.userId;
+  const userId = req.params.id;
 
   try {
     // Get user details and posts
