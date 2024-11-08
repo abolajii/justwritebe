@@ -8,7 +8,9 @@ const {
   getSuggestions,
   getUserNotifications,
   readNotification,
+  getSingleUser,
 } = require("../controllers/userController");
+
 const { verifyToken } = require("../middleware");
 
 const router = express.Router();
@@ -20,6 +22,8 @@ router.get("/users/suggest", [verifyToken], getSuggestions);
 router.post("/follow/:userId", [verifyToken], followUser);
 
 router.get("/current/user", getCurrentUser);
+
+router.get("/u/:id", [verifyToken], getSingleUser);
 
 router.get("/suggestion", [verifyToken], suggestUsers);
 
