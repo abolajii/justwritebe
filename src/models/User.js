@@ -7,6 +7,8 @@ const UserSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    bio: { type: String, default: "" }, // Bio of the user
+    location: { type: String, default: "" },
     profilePic: { type: String }, // Optional profile picture URL
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Users following this user
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Users this user is following
