@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Post = require("../models/Post");
+const Comment = require("../models/Comment");
 const { createNotification, getUserProfileAndPosts } = require("../utils");
 const Notification = require("../models/Notification");
 
@@ -189,7 +190,13 @@ exports.getUserNotifications = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate("sender", "profilePic username name") // Populates sender info (e.g., follower, liker)
       .populate("data.follower", "username profilePic") // Populates follower information if it's a follow notification
-      .populate("data.post", "content") // Populates post details if it's a like/share notification
+      .populate({
+        path: "data.post", // Populates post details
+        populate: {
+          path: "user", // Further populate the user field within each post
+          select: "username profilePic name", // Select specific fields from the user
+        },
+      })
       .populate("data.comment", "content"); // Populates comment details if it's a reply notification
 
     // Send the populated notifications
@@ -240,5 +247,61 @@ exports.getSingleUser = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error fetching user profile and posts" });
+  }
+};
+
+exports.globalSearch = async (req, res) => {
+  try {
+    const { query } = req.query; // Assume search query is passed in the request body
+
+    if (!query || query.trim() === "") {
+      return res.status(400).json({ message: "Search query cannot be empty" });
+    }
+
+    // Use regular expressions for partial matching and case-insensitivity
+    const searchRegex = new RegExp(query, "i");
+
+    // Perform search across different collections
+    const [posts, comments, users] = await Promise.all([
+      Post.find({
+        $or: [
+          { content: { $regex: searchRegex } }, // Search in post content
+          { postType: "quoted", originalPost: { $exists: true } }, // Quoted posts
+          { postType: "shared", originalPost: { $exists: true } }, // Shared posts
+        ],
+      })
+        .populate("user", "username profilePic name")
+        .populate("originalPost", "content user")
+        .populate("quotedPost", "content user"),
+
+      Comment.find({
+        $or: [
+          { content: { $regex: searchRegex } }, // Search in comment content
+          { commentType: "reply", originalComment: { $exists: true } }, // Replies
+        ],
+      })
+        .populate("user", "username profilePic name")
+        .populate("post", "content user"), // Populate post content for context
+
+      User.find({
+        $or: [
+          { username: { $regex: searchRegex } }, // Search in usernames
+          { name: { $regex: searchRegex } }, // Search in names
+          { bio: { $regex: searchRegex } }, // Search in bios
+        ],
+      }).select("username name profilePic bio location"),
+    ]);
+
+    // Combine all results into a single response
+    res.status(200).json({
+      posts,
+      comments,
+      users,
+    });
+  } catch (error) {
+    console.error("Error performing global search:", error);
+    res.status(500).json({
+      message: "An error occurred while performing global search",
+    });
   }
 };

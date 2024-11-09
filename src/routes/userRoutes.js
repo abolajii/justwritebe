@@ -9,6 +9,7 @@ const {
   getUserNotifications,
   readNotification,
   getSingleUser,
+  globalSearch,
 } = require("../controllers/userController");
 
 const { verifyToken } = require("../middleware");
@@ -16,6 +17,8 @@ const { verifyToken } = require("../middleware");
 const router = express.Router();
 
 router.get("/users", [verifyToken], getAllUsers);
+
+router.get("/search", [verifyToken], globalSearch);
 
 router.get("/users/suggest", [verifyToken], getSuggestions);
 
