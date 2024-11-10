@@ -24,7 +24,7 @@ exports.createNotification = async (receiverId, type, data) => {
 exports.getUserProfileAndPosts = async (userId) => {
   try {
     // Fetch user details including bio and location
-    const user = await User.findById(userId).select(
+    const user = await User.findOne({ username: userId }).select(
       "username name email profilePic bio location followers following isVerified"
     ); // Including bio and location
 
@@ -33,7 +33,7 @@ exports.getUserProfileAndPosts = async (userId) => {
     }
 
     // Fetch the posts of the user
-    const posts = await Post.find({ user: userId })
+    const posts = await Post.find({ user: user._id })
       .populate("user", "username name profilePic isVerified") // Populate the 'user' field to get user info
       .populate("comments") // Optional: populate comments if needed
       .sort({ createdAt: -1 }); // Sort posts by creation time (newest first)
