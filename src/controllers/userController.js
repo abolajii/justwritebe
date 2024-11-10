@@ -186,7 +186,10 @@ exports.getUserNotifications = async (req, res) => {
     const userId = req.user.id; // The ID of the logged-in user
 
     // Fetch notifications for the user, sorted by newest first
-    const notifications = await Notification.find({ receiver: userId })
+    const notifications = await Notification.find({
+      receiver: userId,
+      sender: { $ne: userId }, // Exclude notifications where the sender is the current user
+    })
       .sort({ createdAt: -1 })
       .populate("sender", "profilePic username name") // Populates sender info (e.g., follower, liker)
       .populate("data.follower", "username profilePic") // Populates follower information if it's a follow notification
@@ -199,8 +202,18 @@ exports.getUserNotifications = async (req, res) => {
       })
       .populate("data.comment", "content"); // Populates comment details if it's a reply notification
 
-    // Send the populated notifications
-    res.status(200).json({ notifications });
+    // Filter out notifications where the sender and receiver are the same (self-notifications)
+    const filteredNotifications = notifications.filter((notification) => {
+      if (
+        notification.sender._id.toString() === notification.receiver.toString()
+      ) {
+        return false; // Don't include self-notifications
+      }
+      return true; // Include other notifications
+    });
+
+    // Send the filtered notifications
+    res.status(200).json({ notifications: filteredNotifications });
   } catch (error) {
     console.error("Error fetching notifications:", error);
     res.status(500).json({
