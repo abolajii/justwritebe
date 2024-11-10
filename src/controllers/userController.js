@@ -122,7 +122,7 @@ exports.suggestUsers = async (req, res) => {
     const suggestions = await User.find({
       _id: { $nin: [...followingIds, userId] }, // Exclude followed users and self
     })
-      .select("username name profilePic") // Select relevant fields
+      .select("username name profilePic followers following") // Select relevant fields
       .limit(10) // Limit to 10 suggestions
       .exec();
 
@@ -281,7 +281,14 @@ exports.globalSearch = async (req, res) => {
         ],
       })
         .populate("user", "username profilePic name")
-        .populate("post", "content user"), // Populate post content for context
+        .populate("post", "content user") // Populate post content for context
+        .populate({
+          path: "post",
+          populate: {
+            path: "user",
+            select: "username",
+          },
+        }), // Populate post content for context
 
       User.find({
         $or: [
