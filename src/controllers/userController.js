@@ -50,24 +50,25 @@ exports.followUser = async (req, res) => {
   const currentUserId = req.user.id; // The logged-in user's ID (Assumed you are using a middleware to get authenticated user)
   const { userId } = req.params; // The ID of the user you want to follow/unfollow
 
-  if (currentUserId === userId) {
-    return res.status(400).json({ message: "You cannot follow yourself." });
-  }
   try {
     // Find the current user and the target user
     const currentUser = await User.findById(currentUserId);
-    const targetUser = await User.findById(userId);
+    const targetUser = await User.findOne({ username: userId });
+
+    if (currentUserId === targetUser._id) {
+      return res.status(400).json({ message: "You cannot follow yourself." });
+    }
 
     if (!targetUser) {
       return res.status(404).json({ message: "User not found." });
     }
 
     // Check if the current user is already following the target user
-    const isFollowing = currentUser.following.includes(userId);
+    const isFollowing = currentUser.following.includes(targetUser._id);
 
     if (isFollowing) {
       // If already following, unfollow the user
-      currentUser.following.pull(userId); // Remove user from following list
+      currentUser.following.pull(targetUser._id); // Remove user from following list
       targetUser.followers.pull(currentUserId); // Remove current user from the target user's followers list
       await currentUser.save();
       await targetUser.save();
@@ -76,7 +77,7 @@ exports.followUser = async (req, res) => {
         .json({ message: "Successfully unfollowed the user." });
     } else {
       // If not following, follow the user
-      currentUser.following.push(userId); // Add target user to following list
+      currentUser.following.push(targetUser._id); // Add target user to following list
       targetUser.followers.push(currentUserId); // Add current user to the target user's followers list
       await currentUser.save();
       await targetUser.save();
