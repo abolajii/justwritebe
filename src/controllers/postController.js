@@ -167,7 +167,7 @@ exports.quotePost = async (req, res) => {
       // Set the imageUrl to the path where the image is accessible
       quotedPost.imageUrl = `/uploads/posts/${quotedPost._id}/${formattedDate}/${uploadedFile.name}`;
     }
-    await updateTrendingWords(content);
+    // await updateTrendingWords(content);
     await quotedPost.save();
 
     // Populate the fields according to the structure you specified
@@ -346,7 +346,7 @@ exports.replyToPost = async (req, res) => {
     }
 
     await comment.save();
-    await updateTrendingWords(content);
+    // await updateTrendingWords(content);
 
     // Add comment to post's comment list
     post.comments.push(comment._id);
@@ -422,7 +422,7 @@ exports.replyToComment = async (req, res) => {
     await replyComment.save();
 
     // Update trending words (if applicable)
-    await updateTrendingWords(content);
+    // await updateTrendingWords(content);
 
     // Add the reply to the original comment's replies array
     parentComment.replies.push(replyComment._id);
@@ -454,7 +454,7 @@ exports.createComment = async (req, res) => {
     await comment.save();
     post.comments.push(comment._id);
     await post.save();
-    await updateTrendingWords(req.body.content);
+    // await updateTrendingWords(req.body.content);
 
     await createNotification(post.user, "reply", {
       userId: req.user.id,
