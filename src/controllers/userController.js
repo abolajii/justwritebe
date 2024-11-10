@@ -335,18 +335,18 @@ exports.getConnections = async (req, res) => {
     const user = await User.findOne({ username: uname })
       .populate({
         path: "followers",
-        select: "id username followers profilePic name", // Populate followers with their follower IDs
+        select: "id username followers profilePic name isVerified", // Populate followers with their follower IDs
         populate: [
-          { path: "followers", select: "id name" },
-          { path: "following", select: "id name" },
+          { path: "followers", select: "id name isVerified" },
+          { path: "following", select: "id name isVerified" },
         ], // Get followers' follower IDs
       })
       .populate({
         path: "following",
-        select: "id username followers profilePic name", // Populate followers with their follower IDs
+        select: "id username followers profilePic name isVerified", // Populate followers with their follower IDs
         populate: [
-          { path: "followers", select: "id name" },
-          { path: "following", select: "id name" },
+          { path: "followers", select: "id name isVerified" },
+          { path: "following", select: "id name isVerified" },
         ], // Get followers' follower IDs
       });
 
@@ -359,7 +359,10 @@ exports.getConnections = async (req, res) => {
       id: follower.id,
       username: follower.username,
       name: follower.name,
+      followers: follower.followers,
+      following: follower.following,
       profilePic: follower.profilePic,
+      isVerified: follower.isVerified,
       isFollowingLoggedInUser: follower.following
         ? follower.following.map((f) => f.id).includes(loggedInUserId)
         : false,
@@ -373,7 +376,10 @@ exports.getConnections = async (req, res) => {
       id: followedUser.id,
       username: followedUser.username,
       name: followedUser.name,
+      followers: followedUser.followers,
+      following: followedUser.following,
       profilePic: followedUser.profilePic,
+      isVerified: followedUser.isVerified,
       isFollowingLoggedInUser: followedUser.following
         ? followedUser.following.map((f) => f.id).includes(loggedInUserId)
         : false,
@@ -388,6 +394,7 @@ exports.getConnections = async (req, res) => {
         name: user.name,
         username: user.username,
         profilePic: user.profilePic,
+        isVerified: user.isVerified,
         followers,
         following,
       },
