@@ -270,7 +270,7 @@ exports.globalSearch = async (req, res) => {
           { postType: "shared", originalPost: { $exists: true } }, // Shared posts
         ],
       })
-        .populate("user", "username profilePic name")
+        .populate("user", "username profilePic name isVerified")
         .populate("originalPost", "content user")
         .populate("quotedPost", "content user"),
 
@@ -280,13 +280,13 @@ exports.globalSearch = async (req, res) => {
           { commentType: "reply", originalComment: { $exists: true } }, // Replies
         ],
       })
-        .populate("user", "username profilePic name")
+        .populate("user", "username profilePic name isVerified")
         .populate("post", "content user") // Populate post content for context
         .populate({
           path: "post",
           populate: {
             path: "user",
-            select: "username",
+            select: "username isVerified",
           },
         }), // Populate post content for context
 
@@ -296,7 +296,7 @@ exports.globalSearch = async (req, res) => {
           { name: { $regex: searchRegex } }, // Search in names
           { bio: { $regex: searchRegex } }, // Search in bios
         ],
-      }).select("username name profilePic bio location"),
+      }).select("username name profilePic bio location isVerified"),
     ]);
 
     // Combine all results into a single response
@@ -310,5 +310,77 @@ exports.globalSearch = async (req, res) => {
     res.status(500).json({
       message: "An error occurred while performing global search",
     });
+  }
+};
+
+exports.getConnections = async (req, res) => {
+  try {
+    const { uname } = req.params;
+    const loggedInUserId = req.user.id; // Assuming `req.user.id` is the logged-in user's ID
+
+    // Find user by username and populate followers and following fields
+    const user = await User.findOne({ username: uname })
+      .populate({
+        path: "followers",
+        select: "id username followers profilePic name", // Populate followers with their follower IDs
+        populate: [
+          { path: "followers", select: "id name" },
+          { path: "following", select: "id name" },
+        ], // Get followers' follower IDs
+      })
+      .populate({
+        path: "following",
+        select: "id username followers profilePic name", // Populate followers with their follower IDs
+        populate: [
+          { path: "followers", select: "id name" },
+          { path: "following", select: "id name" },
+        ], // Get followers' follower IDs
+      });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Map followers to check if logged-in user follows each of them
+    const followers = user.followers.map((follower) => ({
+      id: follower.id,
+      username: follower.username,
+      name: follower.name,
+      profilePic: follower.profilePic,
+      isFollowingLoggedInUser: follower.following
+        ? follower.following.map((f) => f.id).includes(loggedInUserId)
+        : false,
+      isFollowedByLoggedInUser: follower.followers
+        ? follower.followers.map((f) => f.id).includes(loggedInUserId)
+        : false,
+    }));
+
+    // Map following list
+    const following = user.following.map((followedUser) => ({
+      id: followedUser.id,
+      username: followedUser.username,
+      name: followedUser.name,
+      profilePic: followedUser.profilePic,
+      isFollowingLoggedInUser: followedUser.following
+        ? followedUser.following.map((f) => f.id).includes(loggedInUserId)
+        : false,
+      isFollowedByLoggedInUser: followedUser.followers
+        ? followedUser.followers.map((f) => f.id).includes(loggedInUserId)
+        : false,
+    }));
+
+    res.status(200).json({
+      user: {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        profilePic: user.profilePic,
+        followers,
+        following,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 };

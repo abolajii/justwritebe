@@ -10,6 +10,7 @@ const {
   readNotification,
   getSingleUser,
   globalSearch,
+  getConnections,
 } = require("../controllers/userController");
 
 const { verifyToken } = require("../middleware");
@@ -27,6 +28,8 @@ router.post("/follow/:userId", [verifyToken], followUser);
 router.get("/current/user", getCurrentUser);
 
 router.get("/u/:id", [verifyToken], getSingleUser);
+
+router.get("/u/:uname/c", [verifyToken], getConnections);
 
 router.get("/suggestion", [verifyToken], suggestUsers);
 

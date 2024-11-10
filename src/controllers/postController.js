@@ -677,20 +677,20 @@ exports.getPostById = async (req, res) => {
     const post = await Post.findById(postId)
       .populate({
         path: "user", // Get the user who created the post
-        select: "name email profilePic username", // Select the fields you want from the user
+        select: "name email profilePic username isVerified", // Select the fields you want from the user
       })
       .populate({
         path: "comments", // Populate the comments on the post
         populate: [
           {
             path: "user", // Get the user who created each comment
-            select: "name email profilePic username", // Select fields you want from the user
+            select: "name email profilePic username isVerified", // Select fields you want from the user
           },
           {
             path: "replies", // Populate replies for each comment
             populate: {
               path: "user", // Get the user for each reply
-              select: "name email profilePic username", // Select fields you want from the user
+              select: "name email profilePic username isVerified", // Select fields you want from the user
             },
           },
         ],
