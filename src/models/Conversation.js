@@ -11,6 +11,7 @@ const conversationSchema = new mongoose.Schema(
     },
     isGroup: { type: Boolean, default: false },
     pinned: { type: Boolean, default: false },
+    profilePic: { type: String },
     groupName: {
       type: String,
       required: function () {

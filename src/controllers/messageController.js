@@ -1,10 +1,18 @@
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
+const ImageKit = require("imagekit");
+
+const imagekit = new ImageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+  urlEndpoint: `https://ik.imagekit.io/${process.env.IMAGEKIT_ID}`,
+});
 
 exports.createGroupConversation = async (req, res) => {
   try {
     const { participants, groupName } = req.body;
     const { id } = req.user;
+    const { file } = req.files;
 
     // Ensure there's a group name for group conversations
     if (!groupName) {
@@ -34,6 +42,19 @@ exports.createGroupConversation = async (req, res) => {
         isGroup: true,
         groupName: groupName,
       });
+
+      const sanitizedGroupName = groupName.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+      if (file) {
+        // Upload the profile picture to ImageKit
+        const uploadResponse = await imagekit.upload({
+          file: file.data.toString("base64"), // base64 encoded string
+          fileName: `${sanitizedGroupName}_${Date.now()}`, // A unique file name
+          folder: `/conversations/${sanitizedGroupName}`, // Correct folder path format
+        });
+
+        conversation.profilePic = uploadResponse.url;
+      }
       await conversation.save();
     } else {
       // Update existing conversation if necessary (e.g., add new participants)
@@ -130,9 +151,9 @@ exports.getUserConversations = async (req, res) => {
         time: conv.lastMsg ? conv.lastMsg.createdAt.toLocaleTimeString() : "",
         alertCount: conv.messages ? conv.messages.length : 0, // Assuming total messages as alert count
         status: conv.pinned, // Assuming 'pinned' status
-        avatar: isGroup
-          ? conv.avatar || null
-          : participants.find((p) => p.id.toString() !== userId)?.avatar,
+        profilePic: isGroup
+          ? conv.profilePic || null
+          : participants.find((p) => p.id.toString() !== userId)?.profilePic,
         pinned: conv.pinned,
         isGroup: isGroup,
         lastMessageSender: lastMessageSender || null,
@@ -166,20 +187,54 @@ exports.sendMessage = async (req, res) => {
       return res.status(404).json({ message: "Conversation not found" });
     }
 
-    let messages = [];
+    let messages = []; // Array to hold the messages created
 
     // Determine the receivers (all participants except the sender)
     const receivers = conversation.participants.filter(
       (u) => u.toString() !== senderId.toString()
     );
 
-    // Create a message for each receiver
-    for (let receiver of receivers) {
+    if (req.files && req.files.file) {
+      const files = Array.isArray(req.files.file)
+        ? req.files.file
+        : [req.files.file];
+      const filePaths = await uploadFiles(files); // Upload files and get file paths
+
+      // Create separate messages for each file
+      for (let i = 0; i < filePaths.length; i++) {
+        const filePath = filePaths[i];
+
+        // Create a new Message document with the file path
+        const message = new Message({
+          sender: senderId,
+          content: "", // No content since it's a file message
+          file: filePath,
+          seenBy: [senderId],
+          receiver: receivers, // Correctly set the receivers
+        });
+
+        await message.save();
+
+        // Add the message ID to the conversation
+        conversation.messages.push(message._id);
+        conversation.lastMsg = message._id;
+        messages.push(message);
+
+        // Emit new message event to other participants
+        socket
+          .getIo()
+          .to(receivers.map((p) => p.toString()))
+          .emit("newMessage", message);
+      }
+
+      await conversation.save();
+    } else {
+      // If no files, create a normal text message
       const message = new Message({
         sender: senderId,
         content: content,
         seenBy: [senderId],
-        receiver: receiver, // Set each receiver individually
+        receiver: receivers, // Correctly set the receivers
       });
 
       await message.save();
@@ -187,17 +242,20 @@ exports.sendMessage = async (req, res) => {
       // Add the message to the conversation
       conversation.messages.push(message._id);
       conversation.lastMsg = message._id;
+      await conversation.save();
 
-      // Collect all sent messages
+      // Emit new message event to other participants
+      socket
+        .getIo()
+        .to(receivers.map((p) => p.toString()))
+        .emit("newMessage", message);
+
       messages.push(message);
     }
 
-    // Save the conversation once with all messages added
-    await conversation.save();
-
     res.status(201).json({
       message: "Messages sent successfully!",
-      messages,
+      messages, // Array of messages sent
     });
   } catch (error) {
     res.status(500).json({
