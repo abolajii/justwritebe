@@ -69,6 +69,8 @@ exports.register = async (req, res) => {
         email: newUser.email,
         profilePic: newUser.profilePic,
         isVerified: newUser.isVerified,
+        following: 0,
+        followers: 0,
       },
     });
   } catch (error) {
@@ -85,7 +87,9 @@ exports.login = async (req, res) => {
     // Check if the user exists by email or username
     const user = await User.findOne({
       $or: [{ email: identifier }, { username: identifier }],
-    });
+    })
+      .populate("following")
+      .populate("followers");
 
     if (!user) {
       return res
@@ -119,6 +123,8 @@ exports.login = async (req, res) => {
         email: user.email,
         profilePic: user.profilePic,
         isVerified: user.isVerified,
+        following: user.following.length,
+        followers: user.followers.length,
       },
     });
   } catch (error) {
