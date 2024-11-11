@@ -206,3 +206,35 @@ exports.sendMessage = async (req, res) => {
     });
   }
 };
+
+exports.getMessagesInAConversationById = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    // Find the conversation by ID and populate messages
+    const conversation = await Conversation.findById(conversationId)
+      .populate({
+        path: "messages",
+        populate: {
+          path: "sender receiver", // Populate sender and receiver details if needed
+          select: "name profilePic", // Select only the fields you need (e.g., name, avatar)
+        },
+      })
+      .exec();
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    // Return the messages array
+    res.status(200).json({
+      message: "Messages retrieved successfully",
+      messages: conversation.messages,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error retrieving messages",
+      error: error.message,
+    });
+  }
+};
