@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs");
 
 const ImageKit = require("imagekit");
+const Post = require("../models/Post");
 
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
