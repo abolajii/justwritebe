@@ -10,7 +10,7 @@ router.post("/send", [verifyToken], messageController.sendMessage);
 router.get(
   "/conversations/:conversationId/messages",
   [verifyToken],
-  messageController.sendMessage
+  messageController.getMessagesInAConversationById
 );
 
 router.get(
