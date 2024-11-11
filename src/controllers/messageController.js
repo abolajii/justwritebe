@@ -12,14 +12,15 @@ exports.createGroupConversation = async (req, res) => {
   try {
     const { participants, groupName } = req.body;
     const { id } = req.user;
-    const { file } = req.files;
+    const file = req.files?.file;
+    console.log(req.user);
 
     // Ensure there's a group name for group conversations
-    if (!groupName) {
-      return res
-        .status(400)
-        .json({ message: "Group name is required for group conversations." });
-    }
+    // if (!groupName) {
+    //   return res
+    //     .status(400)
+    //     .json({ message: "Group name is required for group conversations." });
+    // }
 
     // Ensure there are participants provided
     if (participants.length < 2) {
@@ -41,6 +42,7 @@ exports.createGroupConversation = async (req, res) => {
         participants: [id, ...participants],
         isGroup: true,
         groupName: groupName,
+        createdBy: id,
       });
 
       const sanitizedGroupName = groupName.replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -145,7 +147,9 @@ exports.getUserConversations = async (req, res) => {
       return {
         id: conv._id,
         name: isGroup
-          ? conv.groupName
+          ? conv.groupName === ""
+            ? "Default Group Chat"
+            : conv.groupName
           : participants.find((p) => p.id.toString() !== userId)?.name,
         message: messageText,
         time: conv.lastMsg ? conv.lastMsg.createdAt.toLocaleTimeString() : "",
