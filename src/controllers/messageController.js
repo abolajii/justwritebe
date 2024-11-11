@@ -118,7 +118,8 @@ exports.getUserConversations = async (req, res) => {
     // Fetch conversations for the logged-in user
     const userId = req.user.id;
     const conversations = await Conversation.find({ participants: userId })
-      .populate("participants", "name avatar") // Fetch participant names and avatars
+      .populate("participants", "name profilePic") // Fetch participant names and profilePics
+      .populate("createdBy", "name profilePic") // Fetch participant names and avatars
       .populate("lastMsg", "text createdAt sender") // Fetch last message details
       .exec();
 
@@ -138,9 +139,7 @@ exports.getUserConversations = async (req, res) => {
       // Check if this is a new conversation without messages
       let messageText = conv.lastMsg?.text || "";
       if (!messageText && !lastMessageSender && isGroup) {
-        const creatorName =
-          participants.find((p) => p.id.toString() === userId)?.name || "Admin";
-        messageText = `${creatorName} created a group`;
+        const creatorName = conv.createdBy.name;
       }
 
       // Format conversation object with conditional fields
