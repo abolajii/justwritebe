@@ -68,6 +68,7 @@ exports.register = async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         profilePic: newUser.profilePic,
+        isVerified: newUser.isVerified,
       },
     });
   } catch (error) {
@@ -117,6 +118,7 @@ exports.login = async (req, res) => {
         name: user.name,
         email: user.email,
         profilePic: user.profilePic,
+        isVerified: user.isVerified,
       },
     });
   } catch (error) {
