@@ -105,6 +105,9 @@ exports.login = async (req, res) => {
         .json({ message: "Invalid email/username or password" });
     }
 
+    // Count the number of posts by the user
+    const postCount = await Post.countDocuments({ user: user._id });
+
     // Generate a token for the user
     const token = jwt.sign(
       { id: user._id, username: user.username },
@@ -125,6 +128,7 @@ exports.login = async (req, res) => {
         isVerified: user.isVerified,
         following: user.following.length,
         followers: user.followers.length,
+        postCount, // Add post count here
       },
     });
   } catch (error) {
