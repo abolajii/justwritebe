@@ -139,7 +139,7 @@ exports.getUserConversations = async (req, res) => {
       // Check if this is a new conversation without messages
       let messageText = conv.lastMsg?.text || "";
       if (!messageText && !lastMessageSender && isGroup) {
-        const creatorName = conv.createdBy;
+        const creatorName = conv.createdBy.name;
         messageText = `${creatorName} created a new group`;
       }
 
