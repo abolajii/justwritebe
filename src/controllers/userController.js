@@ -405,3 +405,42 @@ exports.getConnections = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.getMutualFollowers = async (req, res) => {
+  const currentUserId = req.user.id; // Assuming the logged-in user's ID is available in req.user
+
+  try {
+    // Fetch the logged-in user's following and followers
+    const currentUser = await User.findById(currentUserId)
+      .select("following followers") // Only select necessary fields
+      .populate("following", "username") // Populate following with usernames
+      .populate("followers", "username"); // Populate followers with usernames
+
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Extract the IDs of the followers and the following users
+    const followingIds = currentUser.following.map((user) =>
+      user._id.toString()
+    );
+    const followersIds = currentUser.followers.map((user) =>
+      user._id.toString()
+    );
+
+    // Find mutual followers (users present in both `following` and `followers` lists)
+    const mutualFollowerIds = followersIds.filter((id) =>
+      followingIds.includes(id)
+    );
+
+    // Populate mutual followers with user data like username and profile picture
+    const mutualFollowersData = await User.find({
+      _id: { $in: mutualFollowerIds },
+    }).select("username profilePic name");
+
+    res.status(200).json(mutualFollowersData);
+  } catch (error) {
+    console.error("Error fetching mutual followers:", error);
+    res.status(500).json({ message: "Error fetching mutual followers" });
+  }
+};
