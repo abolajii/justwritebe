@@ -404,6 +404,7 @@ exports.getConversationById = async (req, res) => {
 
     const formattedConversation = {
       id: conversation._id,
+      createdBy: conversation.createdBy,
       name: conversation.isGroup
         ? conversation.groupName === ""
           ? "Default Group Chat"
