@@ -386,7 +386,7 @@ exports.getConversationById = async (req, res) => {
     const { conversationId } = req.params;
 
     const conversation = await Conversation.findById(conversationId)
-      .populate("participants", "name profilePic")
+      .populate("participants", "name profilePic username")
       .populate("createdBy"); // Populate members with name and profilePic
 
     if (!conversation) {
@@ -425,7 +425,7 @@ exports.getConversationById = async (req, res) => {
       lastMessageSender: lastMessageSender || null,
       groupMembers:
         conversation.isGroup && conversation.participants.length
-          ? conversation.participants.map((p) => p.name)
+          ? conversation.participants
           : null,
       groupAvatars:
         conversation.isGroup && conversation.participants.length
