@@ -386,7 +386,7 @@ exports.getConversationById = async (req, res) => {
     const { conversationId } = req.params;
 
     const conversation = await Conversation.findById(conversationId)
-      .populate("participants", "name profilePic username")
+      .populate("participants", "name profilePic username isVerified")
       .populate("createdBy"); // Populate members with name and profilePic
 
     if (!conversation) {
