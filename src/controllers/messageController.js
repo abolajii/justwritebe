@@ -300,3 +300,141 @@ exports.getMessagesInAConversationById = async (req, res) => {
     });
   }
 };
+
+exports.addParticipantToGroup = async (req, res) => {
+  try {
+    const { conversationId, newParticipantId } = req.body;
+
+    // Find the group conversation by ID
+    const conversation = await Conversation.findById(conversationId);
+
+    if (!conversation || !conversation.isGroup) {
+      return res.status(404).json({ message: "Group conversation not found." });
+    }
+
+    // Check if the participant already exists in the conversation
+    if (conversation.participants.includes(newParticipantId)) {
+      return res
+        .status(400)
+        .json({ message: "Participant already in the group." });
+    }
+
+    // Add the new participant to the conversation
+    conversation.participants.push(newParticipantId);
+    await conversation.save();
+
+    // Notify group participants about the new member
+    socket
+      .getIo()
+      .to(conversation.participants.map((p) => p.toString()))
+      .emit("newParticipant", { conversationId, newParticipantId });
+
+    res.status(200).json({
+      message: "Participant added to group conversation!",
+      conversation,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error adding participant to group conversation",
+      error: error.message,
+    });
+  }
+};
+
+exports.removeParticipantFromGroup = async (req, res) => {
+  try {
+    const { conversationId, participantId } = req.body;
+
+    // Find the group conversation by ID
+    const conversation = await Conversation.findById(conversationId);
+
+    if (!conversation || !conversation.isGroup) {
+      return res.status(404).json({ message: "Group conversation not found." });
+    }
+
+    // Remove the participant from the conversation
+    const index = conversation.participants.indexOf(participantId);
+    if (index > -1) {
+      conversation.participants.splice(index, 1);
+      await conversation.save();
+
+      // Notify group participants about the removal
+      socket
+        .getIo()
+        .to(conversation.participants.map((p) => p.toString()))
+        .emit("participantRemoved", { conversationId, participantId });
+    } else {
+      return res
+        .status(400)
+        .json({ message: "Participant not found in the group." });
+    }
+
+    res.status(200).json({
+      message: "Participant removed from group conversation!",
+      conversation,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error removing participant from group conversation",
+      error: error.message,
+    });
+  }
+};
+
+exports.getConversationById = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    const conversation = await Conversation.findById(conversationId)
+      .populate("participants", "name profilePic")
+      .populate("createdBy"); // Populate members with name and profilePic
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    const lastMessageSender = conversation.lastMsg?.sender?.name || "";
+
+    // Check if this is a new conversation without messages
+    let messageText = conversation.lastMsg?.text || "";
+    if (!messageText && !lastMessageSender && conversation.isGroup) {
+      const creatorName = conversation.createdBy.name;
+      messageText = `${creatorName} created a new group`;
+    }
+
+    const formattedConversation = {
+      id: conversation._id,
+      name: conversation.isGroup
+        ? conversation.groupName === ""
+          ? "Default Group Chat"
+          : conversation.groupName
+        : conversation.participants.find((p) => p.id.toString() !== userId)
+            ?.name,
+      message: messageText,
+      time: conversation.lastMsg
+        ? conversation.lastMsg.createdAt.toLocaleTimeString()
+        : "",
+      alertCount: conversation.messages ? conversation.messages.length : 0, // Assuming total messages as alert count
+      status: conversation.pinned, // Assuming 'pinned' status
+      profilePic: conversation.isGroup
+        ? conversation.profilePic || null
+        : participants.find((p) => p.id.toString() !== userId)?.profilePic,
+      pinned: conversation.pinned,
+      isGroup: conversation.isGroup,
+      lastMessageSender: lastMessageSender || null,
+      groupMembers:
+        conversation.isGroup && conversation.participants.length
+          ? conversation.participants.map((p) => p.name)
+          : null,
+      groupAvatars:
+        conversation.isGroup && conversation.participants.length
+          ? conversation.participants.slice(0, 3).map((p) => p.avatar)
+          : null,
+    };
+
+    res.status(200).json(formattedConversation);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

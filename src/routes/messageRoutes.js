@@ -14,6 +14,12 @@ router.get(
 );
 
 router.get(
+  "/conversations/:conversationId",
+  [verifyToken],
+  messageController.getConversationById
+);
+
+router.get(
   "/user/conversation",
   [verifyToken],
   messageController.getUserConversations
