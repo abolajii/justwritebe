@@ -231,17 +231,17 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
-exports.getMessagesInAConversationById = async (req, res) => {
+exports.getMessageInConversation = async (req, res) => {
   try {
-    const { conversationId } = req.params;
+    const { id } = req.params; // Get the conversation ID from the request parameters
 
-    // Find the conversation by ID and populate messages
-    const conversation = await Conversation.findById(conversationId)
+    // Find the conversation by ID and populate the messages
+    const conversation = await Conversation.findById(id)
       .populate({
         path: "messages",
         populate: {
-          path: "sender receiver", // Populate sender and receiver details if needed
-          select: "name profilePic", // Select only the fields you need (e.g., name, avatar)
+          path: "sender", // Populate the sender field in the messages
+          select: "name", // Select only the name field of the sender
         },
       })
       .exec();
@@ -250,14 +250,11 @@ exports.getMessagesInAConversationById = async (req, res) => {
       return res.status(404).json({ message: "Conversation not found" });
     }
 
-    // Return the messages array
-    res.status(200).json({
-      message: "Messages retrieved successfully",
-      messages: conversation.messages,
-    });
+    // Send back the messages in the conversation
+    res.status(200).json({ messages: conversation.messages });
   } catch (error) {
     res.status(500).json({
-      message: "Error retrieving messages",
+      message: "Error fetching messages",
       error: error.message,
     });
   }
