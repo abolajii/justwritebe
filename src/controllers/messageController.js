@@ -138,6 +138,7 @@ exports.getUserConversations = async (req, res) => {
 
       // Check if this is a new conversation without messages
       let messageText = conv.lastMsg?.text || "";
+
       if (!messageText && !lastMessageSender && isGroup) {
         const creatorName = conv.createdBy.name;
         messageText = `${creatorName} created a new group`;
@@ -193,69 +194,30 @@ exports.sendMessage = async (req, res) => {
 
     let messages = []; // Array to hold the messages created
 
-    // Determine the receivers (all participants except the sender)
-    const receivers = conversation.participants.filter(
-      (u) => u.toString() !== senderId.toString()
-    );
+    // If conversation is a group, no receivers are needed
+    const isGroup = conversation.isGroup;
+    const receivers = isGroup
+      ? [] // No receivers for group messages
+      : conversation.participants.filter(
+          (u) => u.toString() !== senderId.toString()
+        );
 
-    if (req.files && req.files.file) {
-      const files = Array.isArray(req.files.file)
-        ? req.files.file
-        : [req.files.file];
-      const filePaths = await uploadFiles(files); // Upload files and get file paths
+    // If no files, create a normal text message
+    const message = new Message({
+      sender: senderId,
+      content: content,
+      seenBy: [senderId],
+      receiver: isGroup ? undefined : receivers, // Only add receivers if it's not a group
+    });
 
-      // Create separate messages for each file
-      for (let i = 0; i < filePaths.length; i++) {
-        const filePath = filePaths[i];
+    await message.save();
 
-        // Create a new Message document with the file path
-        const message = new Message({
-          sender: senderId,
-          content: "", // No content since it's a file message
-          file: filePath,
-          seenBy: [senderId],
-          receiver: receivers, // Correctly set the receivers
-        });
+    // Add the message to the conversation
+    conversation.messages.push(message._id);
+    conversation.lastMsg = message._id;
+    await conversation.save();
 
-        await message.save();
-
-        // Add the message ID to the conversation
-        conversation.messages.push(message._id);
-        conversation.lastMsg = message._id;
-        messages.push(message);
-
-        // Emit new message event to other participants
-        socket
-          .getIo()
-          .to(receivers.map((p) => p.toString()))
-          .emit("newMessage", message);
-      }
-
-      await conversation.save();
-    } else {
-      // If no files, create a normal text message
-      const message = new Message({
-        sender: senderId,
-        content: content,
-        seenBy: [senderId],
-        receiver: receivers, // Correctly set the receivers
-      });
-
-      await message.save();
-
-      // Add the message to the conversation
-      conversation.messages.push(message._id);
-      conversation.lastMsg = message._id;
-      await conversation.save();
-
-      // Emit new message event to other participants
-      socket
-        .getIo()
-        .to(receivers.map((p) => p.toString()))
-        .emit("newMessage", message);
-
-      messages.push(message);
-    }
+    messages.push(message);
 
     res.status(201).json({
       message: "Messages sent successfully!",
