@@ -233,10 +233,10 @@ exports.sendMessage = async (req, res) => {
 
 exports.getMessageInConversation = async (req, res) => {
   try {
-    const { id } = req.params; // Get the conversation ID from the request parameters
+    const { conversationId } = req.params; // Get the conversation ID from the request parameters
 
     // Find the conversation by ID and populate the messages
-    const conversation = await Conversation.findById(id)
+    const conversation = await Conversation.findById(conversationId)
       .populate({
         path: "messages",
         populate: {
