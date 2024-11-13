@@ -127,7 +127,8 @@ exports.getUserConversations = async (req, res) => {
         path: "lastMsg",
         select: "content createdAt",
         populate: { path: "sender" },
-      }) // Fetch last message details
+      })
+      .sort({ createdAt: -1 }) // Fetch last message details
       .exec();
 
     // Format each conversation
