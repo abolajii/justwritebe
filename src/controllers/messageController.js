@@ -13,7 +13,6 @@ exports.createGroupConversation = async (req, res) => {
     const { participants, groupName } = req.body;
     const { id } = req.user;
     const file = req.files?.file;
-    console.log(req.user);
 
     // Ensure there's a group name for group conversations
     // if (!groupName) {
@@ -22,8 +21,12 @@ exports.createGroupConversation = async (req, res) => {
     //     .json({ message: "Group name is required for group conversations." });
     // }
 
+    const finalParticipant = !Array.isArray(participants)
+      ? [participants, id]
+      : [id, ...participants];
+
     // Ensure there are participants provided
-    if (participants.length < 2) {
+    if (!Array.isArray(finalParticipant) || finalParticipant.length < 2) {
       return res.status(400).json({
         message:
           "At least two participants are required for a group conversation.",
@@ -39,7 +42,7 @@ exports.createGroupConversation = async (req, res) => {
     if (!conversation) {
       // Create a new group conversation
       conversation = new Conversation({
-        participants: [id, ...participants],
+        participants: finalParticipant,
         isGroup: true,
         groupName: groupName,
         createdBy: id,
