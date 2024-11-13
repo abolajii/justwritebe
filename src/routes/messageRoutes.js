@@ -8,6 +8,12 @@ router.post("/group", [verifyToken], messageController.createGroupConversation);
 router.post("/send", [verifyToken], messageController.sendMessage);
 
 router.get(
+  "/participants",
+  [verifyToken],
+  messageController.getParticipantsInGroup
+);
+
+router.get(
   "/conversations/:conversationId/messages",
   [verifyToken],
   messageController.getMessageInConversation
@@ -18,6 +24,8 @@ router.get(
   [verifyToken],
   messageController.getConversationById
 );
+
+router.put("/add", [verifyToken], messageController.addParticipantToGroup);
 
 router.get(
   "/user/conversation",

@@ -1,6 +1,7 @@
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const ImageKit = require("imagekit");
+const User = require("../models/User");
 
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
@@ -275,7 +276,7 @@ exports.getMessageInConversation = async (req, res) => {
 
 exports.addParticipantToGroup = async (req, res) => {
   try {
-    const { conversationId, newParticipantId } = req.body;
+    const { conversationId, selectedUsers } = req.body;
 
     // Find the group conversation by ID
     const conversation = await Conversation.findById(conversationId);
@@ -284,25 +285,14 @@ exports.addParticipantToGroup = async (req, res) => {
       return res.status(404).json({ message: "Group conversation not found." });
     }
 
-    // Check if the participant already exists in the conversation
-    if (conversation.participants.includes(newParticipantId)) {
-      return res
-        .status(400)
-        .json({ message: "Participant already in the group." });
-    }
+    const f = selectedUsers.map((s) => s._id);
 
     // Add the new participant to the conversation
-    conversation.participants.push(newParticipantId);
+    conversation.participants.push(...f);
     await conversation.save();
 
-    // Notify group participants about the new member
-    socket
-      .getIo()
-      .to(conversation.participants.map((p) => p.toString()))
-      .emit("newParticipant", { conversationId, newParticipantId });
-
     res.status(200).json({
-      message: "Participant added to group conversation!",
+      message: "Participants added to group conversation!",
       conversation,
     });
   } catch (error) {
@@ -413,6 +403,36 @@ exports.getConversationById = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getParticipantsInGroup = async (req, res) => {
+  const { conversationId } = req.query;
+  try {
+    // Retrieve the conversation by ID
+    const conversation = await Conversation.findById(conversationId).populate(
+      "participants"
+    );
+
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    // Get IDs of current participants in the conversation
+    const participantIds = conversation.participants.map((participant) =>
+      participant._id.toString()
+    );
+
+    // Find users who are not in the participant list
+    const nonParticipants = await User.find({ _id: { $nin: participantIds } });
+
+    // Respond with non-participant users
+    res.status(200).json({ nonParticipants });
+  } catch (error) {
+    console.error("Error fetching non-participants:", error);
+    res
+      .status(500)
+      .json({ message: "An error occurred while fetching non-participants." });
   }
 };
 
