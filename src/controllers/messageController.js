@@ -253,7 +253,7 @@ exports.getMessageInConversation = async (req, res) => {
         path: "messages",
         populate: {
           path: "sender", // Populate the sender field in the messages
-          select: "name", // Select only the name field of the sender
+          select: "name profilePic", // Select only the name field of the sender
         },
       })
       .exec();
