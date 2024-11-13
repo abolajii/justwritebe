@@ -120,7 +120,11 @@ exports.getUserConversations = async (req, res) => {
     const conversations = await Conversation.find({ participants: userId })
       .populate("participants", "name profilePic") // Fetch participant names and profilePics
       .populate("createdBy", "name profilePic") // Fetch participant names and avatars
-      .populate("lastMsg", "text createdAt sender") // Fetch last message details
+      .populate({
+        path: "lastMsg",
+        select: "content createdAt",
+        populate: { path: "sender" },
+      }) // Fetch last message details
       .exec();
 
     // Format each conversation
@@ -137,7 +141,7 @@ exports.getUserConversations = async (req, res) => {
       const lastMessageSender = conv.lastMsg?.sender?.name || "";
 
       // Check if this is a new conversation without messages
-      let messageText = conv.lastMsg?.text || "";
+      let messageText = conv.lastMsg?.content || "";
 
       if (!messageText && !lastMessageSender && isGroup) {
         const creatorName = conv.createdBy.name;
@@ -153,7 +157,7 @@ exports.getUserConversations = async (req, res) => {
             : conv.groupName
           : participants.find((p) => p.id.toString() !== userId)?.name,
         message: messageText,
-        time: conv.lastMsg ? conv.lastMsg.createdAt.toLocaleTimeString() : "",
+        time: conv.lastMsg ? conv.lastMsg.createdAt : "",
         alertCount: conv.messages ? conv.messages.length : 0, // Assuming total messages as alert count
         status: conv.pinned, // Assuming 'pinned' status
         profilePic: isGroup
@@ -207,10 +211,14 @@ exports.sendMessage = async (req, res) => {
       sender: senderId,
       content: content,
       seenBy: [senderId],
+      status: "sent",
       receiver: isGroup ? undefined : receivers, // Only add receivers if it's not a group
     });
 
     await message.save();
+
+    // Populate the sender field to include full user details
+    await message.populate("sender"); // Adjust fields as needed
 
     // Add the message to the conversation
     conversation.messages.push(message._id);
@@ -221,7 +229,7 @@ exports.sendMessage = async (req, res) => {
 
     res.status(201).json({
       message: "Messages sent successfully!",
-      messages, // Array of messages sent
+      data: messages[0], // Array of messages sent
     });
   } catch (error) {
     res.status(500).json({
@@ -253,6 +261,7 @@ exports.getMessageInConversation = async (req, res) => {
     // Send back the messages in the conversation
     res.status(200).json({ messages: conversation.messages });
   } catch (error) {
+    console.log(error);
     res.status(500).json({
       message: "Error fetching messages",
       error: error.message,
@@ -346,13 +355,18 @@ exports.getConversationById = async (req, res) => {
 
     const conversation = await Conversation.findById(conversationId)
       .populate("participants", "name profilePic username isVerified")
-      .populate("createdBy"); // Populate members with name and profilePic
+      .populate("createdBy") // Populate members with name and profilePic
+      .populate({
+        path: "lastMsg",
+        select: "text createdAt",
+        populate: { path: "sender" },
+      }); // Fetch last message details
 
     if (!conversation) {
       return res.status(404).json({ message: "Conversation not found" });
     }
 
-    const lastMessageSender = conversation.lastMsg?.sender?.name || "";
+    const lastMessageSender = conversation?.lastMsg?.sender?.name || "";
 
     // Check if this is a new conversation without messages
     let messageText = conversation.lastMsg?.text || "";
@@ -372,9 +386,7 @@ exports.getConversationById = async (req, res) => {
         : conversation.participants.find((p) => p.id.toString() !== userId)
             ?.name,
       message: messageText,
-      time: conversation.lastMsg
-        ? conversation.lastMsg.createdAt.toLocaleTimeString()
-        : "",
+      time: conversation.lastMsg ? conversation.lastMsg.createdAt : "",
       alertCount: conversation.messages ? conversation.messages.length : 0, // Assuming total messages as alert count
       status: conversation.pinned, // Assuming 'pinned' status
       profilePic: conversation.isGroup
@@ -399,3 +411,22 @@ exports.getConversationById = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// // Function to update all "sending" messages to "sent"
+// const updateMessageStatusToSent = async () => {
+//   try {
+//     const messages = await Message.find({ status: "sending" });
+//     console.log(`Found ${messages.length} messages with "sending" status.`);
+
+//     const result = await Message.deleteMany();
+
+//     console.log(
+//       `Successfully updated ${result.modifiedCount} messages to "sent" status.`
+//     );
+//   } catch (error) {
+//     console.error("Error updating message status:", error);
+//   }
+// };
+
+// // Run the function
+// updateMessageStatusToSent();

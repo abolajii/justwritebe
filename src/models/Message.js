@@ -35,6 +35,12 @@ const messageSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    messageType: {
+      type: String, // Text content for messages
+      default: "normal",
+    },
+    file: { filePath: String, description: String },
+    hasFile: { type: Boolean, default: false },
     receiver: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -47,6 +53,11 @@ const messageSchema = new mongoose.Schema(
     media: [mediaSchema], // Array of media objects
     seenBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     createdAt: { type: Date, default: Date.now },
+    status: {
+      type: String,
+      enum: ["sending", "sent", "delivered"],
+      default: "sending",
+    },
   },
   { timestamps: true }
 );
