@@ -119,67 +119,82 @@ exports.createConversation = async (req, res) => {
 
 exports.getUserConversations = async (req, res) => {
   try {
-    // Fetch conversations for the logged-in user
     const userId = req.user.id;
+
+    // Fetch conversations for the logged-in user
     const conversations = await Conversation.find({ participants: userId })
-      .populate("participants", "name profilePic") // Fetch participant names and profilePics
-      .populate("createdBy", "name profilePic") // Fetch participant names and avatars
+      .populate("participants", "name profilePic")
+      .populate("createdBy", "name profilePic")
       .populate({
         path: "lastMsg",
         select: "content createdAt",
-        populate: { path: "sender" },
+        populate: { path: "sender", select: "name" },
       })
-      .sort({ createdAt: -1 }) // Fetch last message details
+      .sort({ updatedAt: -1 })
       .exec();
 
     // Format each conversation
-    const formattedConversations = conversations.map((conv) => {
-      // Determine if it's a group or individual chat
-      const isGroup = conv.isGroup;
-      const participants = conv.participants.map((participant) => ({
-        id: participant._id,
-        name: participant.name,
-        avatar: participant.avatar,
-      }));
+    const formattedConversations = conversations.map((conversation) => {
+      // Get other participant's details in a one-on-one conversation
+      const otherParticipant = !conversation.isGroup
+        ? conversation.participants.find((p) => p._id.toString() !== userId)
+        : null;
 
-      // Identify the last message sender's name if available
-      const lastMessageSender = conv.lastMsg?.sender?.name || "";
+      // Get last message details
+      const lastMessageSenderId = conversation.lastMsg?.sender?._id.toString();
+      const lastMessageSenderName = conversation.lastMsg?.sender?.name || "";
+      const lastMessageContent = conversation.lastMsg?.content || "";
 
-      // Check if this is a new conversation without messages
-      let messageText = conv.lastMsg?.content || "";
+      // Determine the message to display
+      let displayMessage = "";
 
-      if (!messageText && !lastMessageSender && isGroup) {
-        const creatorName = conv.createdBy.name;
-        messageText = `${creatorName} created a new group`;
+      if (conversation.isGroup) {
+        // For group chats, show the last message or default message if no messages exist
+        if (lastMessageContent) {
+          displayMessage =
+            lastMessageSenderId === userId
+              ? `You: ${lastMessageContent}`
+              : `${lastMessageSenderName}: ${lastMessageContent}`;
+        } else {
+          displayMessage = `${conversation.createdBy.name} created a new group`;
+        }
+      } else {
+        // For one-on-one conversations
+        if (lastMessageContent) {
+          displayMessage =
+            lastMessageSenderId === userId
+              ? `You: ${lastMessageContent}`
+              : lastMessageContent;
+        } else {
+          displayMessage =
+            conversation.createdBy._id.toString() === userId
+              ? "You started a conversation"
+              : `${conversation.createdBy.name} started a conversation`;
+        }
       }
 
-      // Format conversation object with conditional fields
-      return {
-        id: conv._id,
-        name: isGroup
-          ? conv.groupName === ""
-            ? "Default Group Chat"
-            : conv.groupName
-          : participants.find((p) => p.id.toString() !== userId)?.name,
-        message: messageText,
-        time: conv.lastMsg ? conv.lastMsg.createdAt : "",
-        alertCount: conv.messages ? conv.messages.length : 0, // Assuming total messages as alert count
-        status: conv.pinned, // Assuming 'pinned' status
-        profilePic: isGroup
-          ? conv.profilePic || null
-          : participants.find((p) => p.id.toString() !== userId)?.profilePic,
-        pinned: conv.pinned,
-        isGroup: isGroup,
-        lastMessageSender: lastMessageSender || null,
-        groupMembers:
-          isGroup && participants.length
-            ? participants.map((p) => p.name)
-            : null,
-        groupAvatars:
-          isGroup && participants.length
-            ? participants.slice(0, 3).map((p) => p.avatar)
-            : null,
+      // Format conversation details
+      const formattedConversation = {
+        id: conversation._id,
+        createdBy: conversation.createdBy,
+        createdAt: conversation.createdAt,
+        name: conversation.isGroup
+          ? conversation.groupName || "Default Group Chat"
+          : otherParticipant?.name,
+        message: displayMessage,
+        time: conversation.lastMsg ? conversation.lastMsg.createdAt : "",
+        alertCount: conversation.messages?.length || 0,
+        status: conversation.pinned,
+        profilePic: conversation.isGroup
+          ? conversation.profilePic || null
+          : otherParticipant?.profilePic || null,
+        pinned: conversation.pinned,
+        isGroup: conversation.isGroup,
+        lastMessageSender: lastMessageSenderName || null,
+        groupMembers: conversation.isGroup ? conversation.participants : null,
       };
+
+      return formattedConversation;
     });
 
     res.status(200).json(formattedConversations);
@@ -377,58 +392,63 @@ exports.removeParticipantFromGroup = async (req, res) => {
 
 exports.getConversationById = async (req, res) => {
   try {
+    const userId = req.user.id;
     const { conversationId } = req.params;
 
     const conversation = await Conversation.findById(conversationId)
       .populate("participants", "name profilePic username isVerified")
-      .populate("createdBy") // Populate members with name and profilePic
+      .populate("createdBy", "name profilePic") // Populate creator's name and profilePic
       .populate({
         path: "lastMsg",
-        select: "text createdAt",
-        populate: { path: "sender" },
-      }); // Fetch last message details
+        select: "text createdAt sender",
+        populate: { path: "sender", select: "name" }, // Populate sender's name for last message
+      });
 
     if (!conversation) {
       return res.status(404).json({ message: "Conversation not found" });
     }
 
-    const lastMessageSender = conversation?.lastMsg?.sender?.name || "";
+    const otherParticipant = !conversation.isGroup
+      ? conversation.participants.find((p) => p._id.toString() !== userId)
+      : null;
 
-    // Check if this is a new conversation without messages
-    let messageText = conversation.lastMsg?.text || "";
-    if (!messageText && !lastMessageSender && conversation.isGroup) {
-      const creatorName = conversation.createdBy.name;
-      messageText = `${creatorName} created a new group`;
+    // Get details of the last message
+    const lastMessageSenderId = conversation.lastMsg?.sender?._id.toString();
+    const lastMessageSenderName = conversation.lastMsg?.sender?.name || "";
+    const messageText = conversation.lastMsg?.content || "";
+
+    // Determine display message
+    let displayMessage;
+    if (conversation.isGroup) {
+      displayMessage = messageText
+        ? lastMessageSenderId === userId
+          ? `You: ${messageText}`
+          : messageText
+        : `${conversation.createdBy.name} created a new group`;
+    } else {
+      displayMessage =
+        lastMessageSenderId === userId ? `You: ${messageText}` : messageText;
     }
 
+    // Format conversation details
     const formattedConversation = {
       id: conversation._id,
       createdBy: conversation.createdBy,
       createdAt: conversation.createdAt,
       name: conversation.isGroup
-        ? conversation.groupName === ""
-          ? "Default Group Chat"
-          : conversation.groupName
-        : conversation.participants.find((p) => p.id.toString() !== userId)
-            ?.name,
-      message: messageText,
+        ? conversation.groupName || "Default Group Chat"
+        : otherParticipant?.name,
+      message: displayMessage,
       time: conversation.lastMsg ? conversation.lastMsg.createdAt : "",
-      alertCount: conversation.messages ? conversation.messages.length : 0, // Assuming total messages as alert count
-      status: conversation.pinned, // Assuming 'pinned' status
+      alertCount: conversation.messages?.length || 0,
+      status: conversation.pinned,
       profilePic: conversation.isGroup
         ? conversation.profilePic || null
-        : participants.find((p) => p.id.toString() !== userId)?.profilePic,
+        : otherParticipant?.profilePic || null,
       pinned: conversation.pinned,
       isGroup: conversation.isGroup,
-      lastMessageSender: lastMessageSender || null,
-      groupMembers:
-        conversation.isGroup && conversation.participants.length
-          ? conversation.participants
-          : null,
-      groupAvatars:
-        conversation.isGroup && conversation.participants.length
-          ? conversation.participants.slice(0, 3).map((p) => p.avatar)
-          : null,
+      lastMessageSender: lastMessageSenderName || null,
+      groupMembers: conversation.isGroup ? conversation.participants : null,
     };
 
     res.status(200).json(formattedConversation);
@@ -470,7 +490,7 @@ exports.getParticipantsInGroup = async (req, res) => {
 
 exports.checkOrCreateConversation = async (req, res) => {
   try {
-    const { username } = req.body;
+    const { username } = req.params;
     const loggedUserId = req.user.id;
 
     // Check if the username is provided
@@ -488,6 +508,7 @@ exports.checkOrCreateConversation = async (req, res) => {
     let conversation = await Conversation.findOne({
       isGroup: false,
       participants: { $all: [loggedUserId, targetUser._id] },
+      createdBy: loggedUserId,
     });
 
     if (conversation) {
@@ -503,11 +524,12 @@ exports.checkOrCreateConversation = async (req, res) => {
       participants: [loggedUserId, targetUser._id],
       isGroup: false,
       messages: [],
+      createdBy: loggedUserId,
     });
     await conversation.save();
 
     // Return the new conversation details
-    res.status(201).json({
+    return res.status(201).json({
       exists: false,
       conversationId: conversation._id,
     });

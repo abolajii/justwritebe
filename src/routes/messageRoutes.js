@@ -3,7 +3,11 @@ const router = express.Router();
 const messageController = require("../controllers/messageController");
 const { verifyToken } = require("../middleware");
 
-router.get("/c", [verifyToken], messageController.checkOrCreateConversation);
+router.get(
+  "/c/:username",
+  [verifyToken],
+  messageController.checkOrCreateConversation
+);
 
 router.post("/group", [verifyToken], messageController.createGroupConversation);
 
