@@ -12,7 +12,9 @@ const conversationSchema = new mongoose.Schema(
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: function () {
+        return this.isGroup;
+      },
     },
     isGroup: { type: Boolean, default: false },
     pinned: { type: Boolean, default: false },

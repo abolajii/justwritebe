@@ -468,6 +468,57 @@ exports.getParticipantsInGroup = async (req, res) => {
   }
 };
 
+exports.checkOrCreateConversation = async (req, res) => {
+  try {
+    const { username } = req.body;
+    const loggedUserId = req.user.id;
+
+    // Check if the username is provided
+    if (!username) {
+      return res.status(400).json({ message: "Username is required." });
+    }
+
+    // Find the user by username
+    const targetUser = await User.findOne({ username });
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Check if the logged user and target user are already in a conversation
+    let conversation = await Conversation.findOne({
+      isGroup: false,
+      participants: { $all: [loggedUserId, targetUser._id] },
+    });
+
+    if (conversation) {
+      // Conversation exists, return true with conversationId
+      return res.status(200).json({
+        exists: true,
+        conversationId: conversation._id,
+      });
+    }
+
+    // If no conversation exists, create a new one
+    conversation = new Conversation({
+      participants: [loggedUserId, targetUser._id],
+      isGroup: false,
+      messages: [],
+    });
+    await conversation.save();
+
+    // Return the new conversation details
+    res.status(201).json({
+      exists: false,
+      conversationId: conversation._id,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error checking or creating conversation",
+      error: error.message,
+    });
+  }
+};
+
 // // Function to update all "sending" messages to "sent"
 // const updateMessageStatusToSent = async () => {
 //   try {
