@@ -450,7 +450,7 @@ exports.getConversationById = async (req, res) => {
       isGroup: conversation.isGroup,
       lastMessageSender: lastMessageSenderName || null,
       groupMembers: conversation.isGroup ? conversation.participants : null,
-      lastLogin: otherParticipant.lastLogin,
+      lastLogin: !conversation.isGroup && otherParticipant?.lastLogin,
     };
 
     res.status(200).json(formattedConversation);
