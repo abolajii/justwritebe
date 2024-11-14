@@ -191,39 +191,71 @@ exports.getUserConversations = async (req, res) => {
 
 exports.sendMessage = async (req, res) => {
   try {
-    const { conversationId, content } = req.body;
+    const { conversationId, content, participantId } = req.body;
     const senderId = req.user.id;
 
-    // Find the conversation by its ID
-    const conversation = await Conversation.findById(conversationId);
+    let conversation;
 
+    // If conversationId is provided, find the conversation
+    if (conversationId) {
+      conversation = await Conversation.findById(conversationId);
+    } else if (participantId) {
+      // Check if participantId is provided
+      if (!participantId) {
+        return res.status(400).json({ message: "Participant ID is required." });
+      }
+
+      // Check if the user with the given participantId exists
+      const participantUser = await User.findById(participantId);
+      if (!participantUser) {
+        return res.status(404).json({ message: "Participant not found." });
+      }
+
+      // Check if a 1-on-1 conversation already exists with the participant
+      conversation = await Conversation.findOne({
+        isGroup: false,
+        participants: { $all: [senderId, participantId] },
+      });
+
+      // If no conversation exists, create a new 1-on-1 conversation
+      if (!conversation) {
+        conversation = new Conversation({
+          participants: [senderId, participantId],
+          isGroup: false,
+          messages: [],
+        });
+        await conversation.save();
+      }
+    }
+
+    // If no conversation exists, return an error
     if (!conversation) {
       return res.status(404).json({ message: "Conversation not found" });
     }
 
-    let messages = []; // Array to hold the messages created
+    let messages = []; // Array to hold the created messages
 
-    // If conversation is a group, no receivers are needed
+    // Determine receivers (empty for groups, specific for 1-on-1)
     const isGroup = conversation.isGroup;
     const receivers = isGroup
-      ? [] // No receivers for group messages
+      ? []
       : conversation.participants.filter(
           (u) => u.toString() !== senderId.toString()
         );
 
-    // If no files, create a normal text message
+    // Create a new message
     const message = new Message({
       sender: senderId,
       content: content,
       seenBy: [senderId],
       status: "sent",
-      receiver: isGroup ? undefined : receivers, // Only add receivers if it's not a group
+      receiver: isGroup ? undefined : receivers,
     });
 
     await message.save();
 
-    // Populate the sender field to include full user details
-    await message.populate("sender"); // Adjust fields as needed
+    // Populate the sender field to include full user details if needed
+    await message.populate("sender");
 
     // Add the message to the conversation
     conversation.messages.push(message._id);
@@ -233,8 +265,8 @@ exports.sendMessage = async (req, res) => {
     messages.push(message);
 
     res.status(201).json({
-      message: "Messages sent successfully!",
-      data: messages[0], // Array of messages sent
+      message: "Message sent successfully!",
+      data: messages[0],
     });
   } catch (error) {
     res.status(500).json({
