@@ -2,6 +2,7 @@ const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const ImageKit = require("imagekit");
 const User = require("../models/User");
+const Post = require("../models/Post");
 
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
@@ -396,7 +397,7 @@ exports.getConversationById = async (req, res) => {
     const { conversationId } = req.params;
 
     const conversation = await Conversation.findById(conversationId)
-      .populate("participants", "name profilePic username isVerified")
+      .populate("participants", "name profilePic username isVerified lastLogin")
       .populate("createdBy", "name profilePic") // Populate creator's name and profilePic
       .populate({
         path: "lastMsg",
@@ -449,6 +450,7 @@ exports.getConversationById = async (req, res) => {
       isGroup: conversation.isGroup,
       lastMessageSender: lastMessageSenderName || null,
       groupMembers: conversation.isGroup ? conversation.participants : null,
+      lastLogin: otherParticipant.lastLogin,
     };
 
     res.status(200).json(formattedConversation);
@@ -559,3 +561,76 @@ exports.checkOrCreateConversation = async (req, res) => {
 
 // // Run the function
 // updateMessageStatusToSent();
+
+// Function to get the last activity time for a specific user
+// const getLastActivity = async (userId) => {
+//   try {
+//     const latestPost = await Post.findOne({ createdBy: userId })
+//       .sort({ updatedAt: -1 })
+//       .select("updatedAt createdAt")
+//       .exec();
+//     const postActivityTime = latestPost
+//       ? latestPost.updatedAt || latestPost.createdAt
+//       : null;
+
+//     const latestMessage = await Message.findOne({ sender: userId })
+//       .sort({ updatedAt: -1 })
+//       .select("updatedAt createdAt")
+//       .exec();
+//     const messageActivityTime = latestMessage
+//       ? latestMessage.updatedAt || latestMessage.createdAt
+//       : null;
+
+//     const latestConversation = await Conversation.findOne({
+//       participants: userId,
+//     })
+//       .sort({ updatedAt: -1 })
+//       .select("updatedAt createdAt")
+//       .exec();
+//     const conversationActivityTime = latestConversation
+//       ? latestConversation.updatedAt || latestConversation.createdAt
+//       : null;
+
+//     const lastActivity = [
+//       postActivityTime,
+//       messageActivityTime,
+//       conversationActivityTime,
+//     ].filter(Boolean);
+
+//     return lastActivity.length
+//       ? new Date(Math.max(...lastActivity.map((d) => d.getTime())))
+//       : null;
+//   } catch (error) {
+//     console.error("Error fetching last activity:", error);
+//     return null;
+//   }
+// };
+
+// const updateLastLoginForAllUsers = async () => {
+//   try {
+//     const users = await User.find();
+
+//     for (const user of users) {
+//       let lastActivityTime = await getLastActivity(user._id);
+
+//       // Use `createdAt` as a fallback if no recent activity is found
+//       if (!lastActivityTime) {
+//         lastActivityTime = user.createdAt;
+//         console.log(
+//           `No recent activity for user ${user.username}, using created date: ${lastActivityTime}`
+//         );
+//       }
+
+//       await User.findByIdAndUpdate(user._id, { lastLogin: lastActivityTime });
+//       console.log(`Updated lastLogin for user ${user.username}`);
+//     }
+
+//     console.log("All users' lastLogin fields have been updated.");
+//   } catch (error) {
+//     console.error("Error updating lastLogin for all users:", error);
+//   } finally {
+//   }
+// };
+
+// // Run the update function
+// updateLastLoginForAllUsers();

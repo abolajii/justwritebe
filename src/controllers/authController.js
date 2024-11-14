@@ -35,6 +35,7 @@ exports.register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      lastLogin: Date.now(),
     });
 
     if (profilePic) {
@@ -72,6 +73,7 @@ exports.register = async (req, res) => {
         isVerified: newUser.isVerified,
         following: 0,
         followers: 0,
+        lastLogin: newUser.lastLogin,
       },
     });
   } catch (error) {
@@ -109,6 +111,10 @@ exports.login = async (req, res) => {
     // Count the number of posts by the user
     const postCount = await Post.countDocuments({ user: user._id });
 
+    user.lastLogin = Date.now();
+
+    await user.save();
+
     // Generate a token for the user
     const token = jwt.sign(
       { id: user._id, username: user.username, name: user.name },
@@ -129,6 +135,7 @@ exports.login = async (req, res) => {
         isVerified: user.isVerified,
         following: user.following.length,
         followers: user.followers.length,
+        lastLogin: user.lastLogin,
         postCount, // Add post count here
       },
     });
