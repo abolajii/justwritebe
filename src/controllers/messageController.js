@@ -3,6 +3,7 @@ const Message = require("../models/Message");
 const ImageKit = require("imagekit");
 const User = require("../models/User");
 const Post = require("../models/Post");
+const Story = require("../models/Story");
 
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
@@ -537,6 +538,55 @@ exports.checkOrCreateConversation = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Error checking or creating conversation",
+      error: error.message,
+    });
+  }
+};
+
+exports.createStory = async (req, res) => {
+  const user = req.user.id;
+  try {
+    const { text } = req.body; // Get text, image URL, and userId from the request body
+
+    const image = req.files.image;
+
+    // Check if user ID is provided
+    if (!user) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    const loggedIn = await User.findById(user);
+
+    // Create a new story instance
+    const newStory = new Story({
+      user,
+      text, // Text of the story
+    });
+
+    if (image) {
+      // Upload the profile picture to ImageKit
+      const uploadResponse = await imagekit.upload({
+        file: image.data.toString("base64"), // base64 encoded string
+        fileName: `${loggedIn.username}_${Date.now()}`, // A unique file name
+        folder: `/story/${loggedIn.username}`, // Optional folder path in ImageKit
+      });
+
+      // Set the profile picture URL from ImageKit's response
+      newUser.newStory = uploadResponse.url;
+    }
+
+    // Save the new story to the database
+    await newStory.save();
+
+    // Return success response
+    return res.status(201).json({
+      message: "Story created successfully",
+      story: newStory,
+    });
+  } catch (error) {
+    console.error("Error creating story:", error);
+    return res.status(500).json({
+      message: "Error creating story",
       error: error.message,
     });
   }
