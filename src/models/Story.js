@@ -7,9 +7,12 @@ const storySchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    text: {
+      type: String, // Link to the story content (image, video, text)
+    },
     media: {
-      url: { type: String, required: true }, // Link to the story content (image, video, text)
-      type: { type: String, enum: ["image", "video", "text"], required: true },
+      url: { type: String }, // Link to the story content (image, video, text)
+      type: { type: String, enum: ["image", "video", "text"] },
     },
     caption: {
       type: String,

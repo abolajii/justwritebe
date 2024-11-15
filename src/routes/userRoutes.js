@@ -12,6 +12,7 @@ const {
   globalSearch,
   getConnections,
   getMutualFollowers,
+  getFollowersStories,
 } = require("../controllers/userController");
 
 const { verifyToken } = require("../middleware");
@@ -25,6 +26,8 @@ router.get("/search", [verifyToken], globalSearch);
 router.get("/users/suggest", [verifyToken], getSuggestions);
 
 router.post("/follow/:userId", [verifyToken], followUser);
+
+router.get("/stories", [verifyToken], getFollowersStories);
 
 router.get("/current/user", getCurrentUser);
 

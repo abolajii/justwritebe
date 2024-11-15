@@ -4,6 +4,7 @@ const Post = require("../models/Post");
 const Comment = require("../models/Comment");
 const { createNotification, getUserProfileAndPosts } = require("../utils");
 const Notification = require("../models/Notification");
+const Story = require("../models/Story");
 
 exports.getCurrentUser = async (req, res) => {
   try {
@@ -123,7 +124,7 @@ exports.suggestUsers = async (req, res) => {
     const suggestions = await User.find({
       _id: { $nin: [...followingIds, userId] }, // Exclude followed users and self
     })
-      .select("username name profilePic followers following") // Select relevant fields
+      .select("username name profilePic followers following isVerified") // Select relevant fields
       .limit(10) // Limit to 10 suggestions
       .exec();
 
@@ -442,5 +443,38 @@ exports.getMutualFollowers = async (req, res) => {
   } catch (error) {
     console.error("Error fetching mutual followers:", error);
     res.status(500).json({ message: "Error fetching mutual followers" });
+  }
+};
+
+exports.getFollowersStories = async (req, res) => {
+  const userId = req.user.id; // Logged-in user ID from the request (assuming JWT auth)
+
+  try {
+    // Step 1: Get the logged-in user's data
+    const user = await User.findById(userId).populate("followers"); // Assuming followers is an array of user IDs
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Step 2: Get the list of followers' IDs
+    const followerIds = user.followers.map((follower) => follower._id); // Extract the follower IDs
+
+    // Step 3: Get the stories from followers
+    const stories = await Story.find({ user: { $in: followerIds } }) // Fetch stories of all followers
+      .populate("user", "name username") // Optionally populate the user details
+      .sort({ createdAt: -1 }); // Sort stories by latest first
+
+    // Step 4: Return the stories
+    return res.status(200).json({
+      message: "Followers' stories fetched successfully",
+      stories,
+    });
+  } catch (error) {
+    console.error("Error fetching followers' stories:", error);
+    return res.status(500).json({
+      message: "Error fetching followers' stories",
+      error: error.message,
+    });
   }
 };

@@ -546,9 +546,9 @@ exports.checkOrCreateConversation = async (req, res) => {
 exports.createStory = async (req, res) => {
   const user = req.user.id;
   try {
-    const { text } = req.body; // Get text, image URL, and userId from the request body
-
+    const { text } = req.body; // Get text and caption from the request body
     const image = req.files?.image;
+    const video = req.files?.video; // Optional: for video file
 
     // Check if user ID is provided
     if (!user) {
@@ -560,19 +560,46 @@ exports.createStory = async (req, res) => {
     // Create a new story instance
     const newStory = new Story({
       user,
-      text, // Text of the story
     });
 
-    if (image !== null) {
-      // Upload the profile picture to ImageKit
+    // Handle image upload
+    if (image) {
+      // Upload the image to ImageKit (or another service)
       const uploadResponse = await imagekit.upload({
         file: image.data.toString("base64"), // base64 encoded string
-        fileName: `${loggedIn.username}_${Date.now()}`, // A unique file name
-        folder: `/story/${loggedIn.username}`, // Optional folder path in ImageKit
+        fileName: `${loggedIn.username}_${Date.now()}`, // Unique file name
+        folder: `/story/${loggedIn.username}`, // Optional folder path
       });
 
-      // Set the profile picture URL from ImageKit's response
-      newUser.newStory = uploadResponse.url;
+      // Set the media object for image
+      newStory.media = {
+        url: uploadResponse.url,
+        type: "image",
+      };
+    }
+
+    // Handle video upload
+    if (video) {
+      // Upload the video to ImageKit (or another service)
+      const uploadResponse = await imagekit.upload({
+        file: video.data.toString("base64"), // base64 encoded string
+        fileName: `${loggedIn.username}_video_${Date.now()}`, // Unique file name
+        folder: `/story/${loggedIn.username}`, // Optional folder path
+      });
+
+      // Set the media object for video
+      newStory.media = {
+        url: uploadResponse.url,
+        type: "video",
+      };
+    }
+
+    // If there is no image or video, just store the text in media as 'text'
+    if (!image && !video) {
+      newStory.media = {
+        type: "text",
+      };
+      newStory.text = text; // Store the text for the story
     }
 
     // Save the new story to the database
