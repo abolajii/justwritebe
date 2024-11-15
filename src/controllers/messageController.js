@@ -510,7 +510,6 @@ exports.checkOrCreateConversation = async (req, res) => {
     let conversation = await Conversation.findOne({
       isGroup: false,
       participants: { $all: [loggedUserId, targetUser._id] },
-      createdBy: loggedUserId,
     });
 
     if (conversation) {
