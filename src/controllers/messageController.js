@@ -548,7 +548,7 @@ exports.createStory = async (req, res) => {
   try {
     const { text } = req.body; // Get text, image URL, and userId from the request body
 
-    const image = req.files.image;
+    const image = req.files?.image;
 
     // Check if user ID is provided
     if (!user) {
