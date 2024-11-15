@@ -465,10 +465,23 @@ exports.getFollowersStories = async (req, res) => {
       .populate("user", "name username") // Optionally populate the user details
       .sort({ createdAt: -1 }); // Sort stories by latest first
 
-    // Step 4: Return the stories
+    // Step 4: Group the stories by user
+    const groupedStories = stories.reduce((grouped, story) => {
+      const userId = story.user._id.toString();
+      if (!grouped[userId]) {
+        grouped[userId] = {
+          user: story.user, // Store user info
+          stories: [],
+        };
+      }
+      grouped[userId].stories.push(story);
+      return grouped;
+    }, {});
+
+    // Step 5: Return the grouped stories
     return res.status(200).json({
       message: "Followers' stories fetched successfully",
-      stories,
+      stories: Object.values(groupedStories), // Return only the grouped stories as an array
     });
   } catch (error) {
     console.error("Error fetching followers' stories:", error);
