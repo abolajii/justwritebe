@@ -563,7 +563,7 @@ exports.createStory = async (req, res) => {
       text, // Text of the story
     });
 
-    if (image) {
+    if (image !== null) {
       // Upload the profile picture to ImageKit
       const uploadResponse = await imagekit.upload({
         file: image.data.toString("base64"), // base64 encoded string
