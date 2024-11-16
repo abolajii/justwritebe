@@ -58,6 +58,9 @@ exports.me = async (req, res) => {
         username: user.username,
         name: user.name,
         isViewed: user.isViewed,
+        link: user.link,
+        bio: user.bio,
+        location: user.location,
         email: user.email,
         profilePic: user.profilePic,
         isVerified: user.isVerified,
@@ -132,6 +135,9 @@ exports.register = async (req, res) => {
         username: newUser.username,
         name: newUser.name,
         email: newUser.email,
+        bio: newUser.bio,
+        link: newUser.link,
+        location: newUser.location,
         profilePic: newUser.profilePic,
         isVerified: newUser.isVerified,
         following: 0,
@@ -205,6 +211,8 @@ exports.login = async (req, res) => {
       { expiresIn: "1d" }
     );
 
+    console.log(user);
+
     // Send back token, user details, and stories
     res.status(200).json({
       message: "Login successful",
@@ -212,6 +220,9 @@ exports.login = async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
+        bio: user.bio,
+        link: user.link,
+        location: user.location,
         name: user.name,
         email: user.email,
         isViewed: user.isViewed,

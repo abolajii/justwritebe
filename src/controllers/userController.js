@@ -494,9 +494,11 @@ exports.getFollowersStories = async (req, res) => {
 };
 
 exports.updateUser = async (req, res) => {
-  const { name, bio, location } = req.body;
+  const { name, bio, location, link } = req.body;
 
   const userId = req.user.id;
+
+  const file = req.files?.file;
 
   // Validate request body
   if (!userId) {
@@ -505,7 +507,7 @@ exports.updateUser = async (req, res) => {
 
   try {
     // Find the user by ID
-    const user = await User.findByPk(userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -513,17 +515,32 @@ exports.updateUser = async (req, res) => {
     // Update fields
     user.name = name || user.name;
     user.bio = bio || user.bio;
+    user.link = link || user.link;
     user.location = location || user.location;
 
+    if (file) {
+      // Upload the profile picture to ImageKit
+      const uploadResponse = await imagekit.upload({
+        file: profilePic.data.toString("base64"), // base64 encoded string
+        fileName: `${username}_${Date.now()}`, // A unique file name
+        folder: `/profile_pics/${username}`, // Optional folder path in ImageKit
+      });
+
+      // Set the profile picture URL from ImageKit's response
+      user.profilePic = uploadResponse.url;
+    }
     // Save the updated user
     await user.save();
 
     return res.status(200).json({
       message: "User details updated successfully",
       user: {
+        username: user.username,
         id: user.id,
         name: user.name,
         bio: user.bio,
+        profilePic: user.profilePic,
+        link: user.link,
         location: user.location,
       },
     });

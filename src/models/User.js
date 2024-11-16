@@ -11,6 +11,7 @@ const UserSchema = new mongoose.Schema(
     username: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
+    link: { type: String, required: false },
     password: { type: String, required: true },
     bio: { type: String, default: "" }, // Bio of the user
     location: { type: String, default: "" },
