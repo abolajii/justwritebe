@@ -7,6 +7,7 @@ const UserSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    isViewed: { type: Boolean, required: true, default: false },
     username: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
