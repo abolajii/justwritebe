@@ -463,9 +463,7 @@ exports.getFollowersStories = async (req, res) => {
 
     // Step 3: Get the stories from followers
     const stories = await Story.find({ user: { $in: followerIds } }) // Fetch stories of all followers
-      .populate("user", "name username profilePic") // Optionally populate the user details
-      .sort({ createdAt: -1 }); // Sort stories by latest first
-
+      .populate("user", "name username profilePic"); // Optionally populate the user details // Sort stories by latest first
     // Step 4: Group the stories by user
     const groupedStories = stories.reduce((grouped, story) => {
       const userId = story.user._id.toString();
