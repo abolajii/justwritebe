@@ -179,6 +179,7 @@ exports.login = async (req, res) => {
       .limit(10); // Optional: Limit the number of stories returned
 
     user.lastLogin = Date.now();
+    user.isViewed = true;
 
     await user.save();
 
