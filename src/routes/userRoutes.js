@@ -13,6 +13,7 @@ const {
   getConnections,
   getMutualFollowers,
   getFollowersStories,
+  updateUser,
 } = require("../controllers/userController");
 
 const { verifyToken } = require("../middleware");
@@ -40,6 +41,8 @@ router.get("/suggestion", [verifyToken], suggestUsers);
 router.get("/notifications", [verifyToken], getUserNotifications);
 
 router.get("/mutual", [verifyToken], getMutualFollowers);
+
+router.put("/me", [verifyToken], updateUser);
 
 router.get("/notification/:id/read", [verifyToken], readNotification);
 
