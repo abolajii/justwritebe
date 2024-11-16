@@ -111,6 +111,8 @@ exports.register = async (req, res) => {
       newUser.profilePic = uploadResponse.url;
     }
 
+    newUser.isViewed = true;
+
     // Save the user in the database
     await newUser.save();
 
