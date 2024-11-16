@@ -619,6 +619,35 @@ exports.createStory = async (req, res) => {
   }
 };
 
+exports.viewStory = async (req, res) => {
+  try {
+    const { storyId } = req.params;
+    const userId = req.user.id; // Assumes authenticate middleware sets req.user
+
+    // Find the story and update views
+    const story = await Story.findByIdAndUpdate(
+      storyId,
+      { $addToSet: { views: userId } }, // Ensures user is added only once
+      { new: true } // Return the updated story
+    );
+
+    if (!story) {
+      return res.status(404).json({ message: "Story not found" });
+    }
+
+    res.status(200).json({
+      message: "Story viewed successfully",
+      story,
+    });
+  } catch (error) {
+    console.error("Error tracking story view:", error);
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 // // Function to update all "sending" messages to "sent"
 // const updateMessageStatusToSent = async () => {
 //   try {

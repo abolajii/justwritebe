@@ -6,12 +6,72 @@ const fs = require("fs");
 
 const ImageKit = require("imagekit");
 const Post = require("../models/Post");
+const Story = require("../models/Story");
 
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
   privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
   urlEndpoint: `https://ik.imagekit.io/${process.env.IMAGEKIT_ID}`,
 });
+
+exports.me = async (req, res) => {
+  try {
+    // Retrieve the authenticated user's ID from the decoded token
+    const userId = req.user.id;
+
+    // Fetch the user's details
+    const user = await User.findById(userId)
+      .populate("following")
+      .populate("followers");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Count the number of posts by the user
+    const postCount = await Post.countDocuments({ user: userId });
+
+    // Fetch the user's stories
+    const userStories = await Story.find({ user: userId })
+      .populate("user", "name username profilePic") // Populate user details
+      .sort({ createdAt: -1 }) // Sort by most recent
+      .limit(10); // Optional: Limit the number of stories returned
+
+    // Group the stories by user (if you have multiple stories per user logic)
+    const groupedStories = userStories.reduce((grouped, story) => {
+      const userId = story.user._id.toString();
+      if (!grouped[userId]) {
+        grouped[userId] = {
+          user: story.user, // Store user info
+          stories: [],
+        };
+      }
+      grouped[userId].stories.push(story);
+      return grouped;
+    }, {});
+
+    // Respond with the user details and related data
+    res.status(200).json({
+      message: "User details retrieved successfully",
+      user: {
+        id: user._id,
+        username: user.username,
+        name: user.name,
+        email: user.email,
+        profilePic: user.profilePic,
+        isVerified: user.isVerified,
+        following: user.following.length,
+        followers: user.followers.length,
+        lastLogin: user.lastLogin,
+        postCount, // Include post count
+        stories: Object.values(groupedStories), // Grouped stories
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error retrieving user details", error });
+  }
+};
 
 // Register a new user
 exports.register = async (req, res) => {
@@ -111,9 +171,28 @@ exports.login = async (req, res) => {
     // Count the number of posts by the user
     const postCount = await Post.countDocuments({ user: user._id });
 
+    // Fetch the user's stories
+    const userStories = await Story.find({ user: user._id })
+      .populate("user", "name username profilePic") // Optionally populate the user details
+      .sort({ createdAt: -1 }) // Sort by most recent
+      .limit(10); // Optional: Limit the number of stories returned
+
     user.lastLogin = Date.now();
 
     await user.save();
+
+    // Step 4: Group the stories by user
+    const groupedStories = userStories.reduce((grouped, story) => {
+      const userId = story.user._id.toString();
+      if (!grouped[userId]) {
+        grouped[userId] = {
+          user: story.user, // Store user info
+          stories: [],
+        };
+      }
+      grouped[userId].stories.push(story);
+      return grouped;
+    }, {});
 
     // Generate a token for the user
     const token = jwt.sign(
@@ -122,7 +201,7 @@ exports.login = async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    // Send back token and user details
+    // Send back token, user details, and stories
     res.status(200).json({
       message: "Login successful",
       token,
@@ -137,6 +216,7 @@ exports.login = async (req, res) => {
         followers: user.followers.length,
         lastLogin: user.lastLogin,
         postCount, // Add post count here
+        stories: Object.values(groupedStories), // Return only the grouped stories as an array
       },
     });
   } catch (error) {

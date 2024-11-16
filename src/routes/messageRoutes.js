@@ -9,6 +9,8 @@ router.get(
   messageController.checkOrCreateConversation
 );
 
+router.post("/story/:storyId/view", [verifyToken], messageController.viewStory);
+
 router.post("/story", [verifyToken], messageController.createStory);
 
 router.post("/group", [verifyToken], messageController.createGroupConversation);

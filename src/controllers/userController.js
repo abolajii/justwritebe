@@ -5,6 +5,7 @@ const Comment = require("../models/Comment");
 const { createNotification, getUserProfileAndPosts } = require("../utils");
 const Notification = require("../models/Notification");
 const Story = require("../models/Story");
+const bcrypt = require("bcryptjs"); // To hash passwords
 
 exports.getCurrentUser = async (req, res) => {
   try {
