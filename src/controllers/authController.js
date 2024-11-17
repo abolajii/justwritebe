@@ -181,10 +181,10 @@ exports.login = async (req, res) => {
     const postCount = await Post.countDocuments({ user: user._id });
 
     // Fetch the user's stories
-    const userStories = await Story.find({ user: user._id })
-      .populate("user", "name username profilePic") // Optionally populate the user details
-      .sort({ createdAt: -1 }) // Sort by most recent
-      .limit(10); // Optional: Limit the number of stories returned
+    const userStories = await Story.find({ user: user._id }).populate(
+      "user",
+      "name username profilePic"
+    ); // Optionally populate the user details
 
     user.lastLogin = Date.now();
     user.isViewed = true;
