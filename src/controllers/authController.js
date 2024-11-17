@@ -32,10 +32,10 @@ exports.me = async (req, res) => {
     const postCount = await Post.countDocuments({ user: userId });
 
     // Fetch the user's stories
-    const userStories = await Story.find({ user: userId })
-      .populate("user", "name username profilePic") // Populate user details
-      .sort({ createdAt: -1 }) // Sort by most recent
-      .limit(10); // Optional: Limit the number of stories returned
+    const userStories = await Story.find({ user: userId }).populate(
+      "user",
+      "name username profilePic"
+    ); // Populate user details
 
     // Group the stories by user (if you have multiple stories per user logic)
     const groupedStories = userStories.reduce((grouped, story) => {
