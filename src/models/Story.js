@@ -23,6 +23,12 @@ const storySchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: "User", // Users who viewed the story
       },
+      {
+        viewedAt: {
+          type: Date,
+          default: Date.now, // Store the timestamp of when the story was viewed
+        },
+      },
     ],
     isPublic: {
       type: Boolean,
