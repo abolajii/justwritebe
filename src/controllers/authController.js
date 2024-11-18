@@ -31,13 +31,15 @@ exports.me = async (req, res) => {
     // Count the number of posts by the user
     const postCount = await Post.countDocuments({ user: userId });
 
-    // Fetch the user's stories
-    const userStories = await Story.find({ user: userId }).populate(
-      "user",
-      "name username profilePic"
-    ); // Populate user details
+    // Fetch the user's stories and populate views
+    const userStories = await Story.find({ user: userId })
+      .populate("user", "name username profilePic") // Populate user details
+      .populate({
+        path: "views.user", // Populate the viewers
+        select: "name username profilePic", // Select specific fields for the viewers
+      });
 
-    // Group the stories by user (if you have multiple stories per user logic)
+    // Group the stories by user
     const groupedStories = userStories.reduce((grouped, story) => {
       const userId = story.user._id.toString();
       if (!grouped[userId]) {

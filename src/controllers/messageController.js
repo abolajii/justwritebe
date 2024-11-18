@@ -624,22 +624,23 @@ exports.viewStory = async (req, res) => {
     const { storyId } = req.params;
     const userId = req.user.id; // Assumes authenticate middleware sets req.user
 
-    // Find the story and update views
-    const story = await Story.findByIdAndUpdate(
-      storyId,
-      {
-        $addToSet: {
-          views: {
-            userId, // Add the userId
-            viewedAt: new Date(), // Add the timestamp of when the story was viewed
-          },
-        },
-      },
-      { new: true } // Return the updated story
-    );
-
+    const story = await Story.findById(storyId);
     if (!story) {
       return res.status(404).json({ message: "Story not found" });
+    }
+
+    // Check if user has already viewed the story
+    const alreadyViewed = story.views.some(
+      (view) => view.user.toString() === userId
+    );
+
+    if (!alreadyViewed) {
+      // Add the user's view
+      story.views.push({
+        user: userId,
+        viewedAt: new Date(),
+      });
+      await story.save();
     }
 
     res.status(200).json({

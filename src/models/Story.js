@@ -20,7 +20,7 @@ const storySchema = new mongoose.Schema(
     },
     views: [
       {
-        userId: {
+        user: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "User", // Reference to the User who viewed the story
           required: true,
