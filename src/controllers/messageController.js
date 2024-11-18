@@ -630,7 +630,7 @@ exports.viewStory = async (req, res) => {
       {
         $addToSet: {
           views: {
-            userId: userId, // Add the userId
+            userId, // Add the userId
             viewedAt: new Date(), // Add the timestamp of when the story was viewed
           },
         },

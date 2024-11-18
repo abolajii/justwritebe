@@ -20,13 +20,14 @@ const storySchema = new mongoose.Schema(
     },
     views: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User", // Users who viewed the story
-      },
-      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User", // Reference to the User who viewed the story
+          required: true,
+        },
         viewedAt: {
           type: Date,
-          default: Date.now, // Store the timestamp of when the story was viewed
+          default: Date.now, // Timestamp of when the story was viewed
         },
       },
     ],
