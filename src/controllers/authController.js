@@ -36,7 +36,7 @@ exports.me = async (req, res) => {
       .populate("user", "name username profilePic") // Populate user details
       .populate({
         path: "views.user", // Populate the viewers
-        select: "name username profilePic", // Select specific fields for the viewers
+        select: "name username profilePic isVerified", // Select specific fields for the viewers
       });
 
     // Group the stories by user
