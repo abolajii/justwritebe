@@ -8,36 +8,69 @@ const storySchema = new mongoose.Schema(
       required: true,
     },
     text: {
-      type: String, // Link to the story content (image, video, text)
+      type: String,
+      trim: true,
+      maxlength: 500, // Optional: limit story text length
     },
     media: {
-      url: { type: String }, // Link to the story content (image, video, text)
-      type: { type: String, enum: ["image", "video", "text"] },
+      type: {
+        type: String,
+        enum: ["image", "video", null],
+        default: null,
+      },
+      url: {
+        type: String,
+        trim: true,
+      },
     },
-    caption: {
+    bgColor: {
       type: String,
-      maxlength: 200, // Optional caption or description
+      default: "#FFFFFF", // White default background
+      validate: {
+        validator: function (v) {
+          return /^#([0-9A-F]{3}){1,2}$/i.test(v);
+        },
+        message: (props) => `${props.value} is not a valid hex color code!`,
+      },
+    },
+    fontFamily: {
+      type: String,
+      default: "Arial",
+      enum: [
+        "Arial",
+        "Helvetica",
+        "Times New Roman",
+        "Courier",
+        "Verdana",
+        "Georgia",
+        "Palatino",
+        "Garamond",
+        "Bookman",
+        "Comic Sans MS",
+        "Trebuchet MS",
+        "Arial Black",
+      ],
     },
     views: [
       {
         user: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "User", // Reference to the User who viewed the story
+          ref: "User",
           required: true,
         },
         viewedAt: {
           type: Date,
-          default: Date.now, // Timestamp of when the story was viewed
+          default: Date.now,
         },
       },
     ],
     isPublic: {
       type: Boolean,
-      default: true, // Set to false for friends-only visibility
+      default: true,
     },
     expiresAt: {
       type: Date,
-      default: () => Date.now() + 24 * 60 * 60 * 1000, // Set to 24 hours from creation time
+      default: () => Date.now() + 24 * 60 * 60 * 1000,
     },
   },
   {

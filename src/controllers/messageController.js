@@ -546,9 +546,7 @@ exports.checkOrCreateConversation = async (req, res) => {
 exports.createStory = async (req, res) => {
   const user = req.user.id;
   try {
-    const { text } = req.body; // Get text and caption from the request body
-    const image = req.files?.image;
-    const video = req.files?.video; // Optional: for video file
+    const { text, bgColor, fontFamily } = req.body;
 
     // Check if user ID is provided
     if (!user) {
@@ -556,56 +554,72 @@ exports.createStory = async (req, res) => {
     }
 
     const loggedIn = await User.findById(user);
+    if (!loggedIn) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     // Create a new story instance
     const newStory = new Story({
       user,
+      text: text || "",
+      bgColor: bgColor || undefined,
+      fontFamily: fontFamily || undefined,
     });
 
     // Handle image upload
+    const image = req.files?.image;
     if (image) {
-      // Upload the image to ImageKit (or another service)
-      const uploadResponse = await imagekit.upload({
-        file: image.data.toString("base64"), // base64 encoded string
-        fileName: `${loggedIn.username}_${Date.now()}`, // Unique file name
-        folder: `/story/${loggedIn.username}`, // Optional folder path
-      });
+      try {
+        const uploadResponse = await imagekit.upload({
+          file: image.data.toString("base64"),
+          fileName: `${loggedIn.username}_${Date.now()}`,
+          folder: `/story/${loggedIn.username}`,
+        });
 
-      // Set the media object for image
-      newStory.media = {
-        url: uploadResponse.url,
-        type: "image",
-      };
+        newStory.media = {
+          url: uploadResponse.url,
+          type: "image",
+        };
+      } catch (uploadError) {
+        return res.status(500).json({
+          message: "Image upload failed",
+          error: uploadError.message,
+        });
+      }
     }
 
     // Handle video upload
+    const video = req.files?.video;
     if (video) {
-      // Upload the video to ImageKit (or another service)
-      const uploadResponse = await imagekit.upload({
-        file: video.data.toString("base64"), // base64 encoded string
-        fileName: `${loggedIn.username}_video_${Date.now()}`, // Unique file name
-        folder: `/story/${loggedIn.username}`, // Optional folder path
-      });
+      try {
+        const uploadResponse = await imagekit.upload({
+          file: video.data.toString("base64"),
+          fileName: `${loggedIn.username}_video_${Date.now()}`,
+          folder: `/story/${loggedIn.username}`,
+        });
 
-      // Set the media object for video
-      newStory.media = {
-        url: uploadResponse.url,
-        type: "video",
-      };
+        newStory.media = {
+          url: uploadResponse.url,
+          type: "video",
+        };
+      } catch (uploadError) {
+        return res.status(500).json({
+          message: "Video upload failed",
+          error: uploadError.message,
+        });
+      }
     }
 
-    // If there is no image or video, just store the text in media as 'text'
-    if (!image && !video) {
-      newStory.media = {
-        type: "text",
-      };
-      newStory.text = text; // Store the text for the story
+    // Validate content
+    if (!text && !image && !video) {
+      return res.status(400).json({
+        message: "Story must contain text, image, or video",
+      });
     }
 
     // Save the new story to the database
     await newStory.save();
 
-    // Return success response
     return res.status(201).json({
       message: "Story created successfully",
       story: newStory,
