@@ -3,8 +3,8 @@ const mongoose = require("mongoose");
 const { Schema, model, Types } = mongoose;
 
 const VoteSchema = new Schema({
-  userId: { type: Types.ObjectId, ref: "User", required: true },
-  optionId: { type: Types.ObjectId, required: true },
+  user: { type: Types.ObjectId, ref: "User", required: true },
+  option: { type: Types.ObjectId, required: true },
 });
 
 const PollOptionSchema = new Schema({
