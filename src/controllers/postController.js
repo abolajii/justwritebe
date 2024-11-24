@@ -847,7 +847,7 @@ exports.createVote = async (req, res) => {
       options: pollOptions,
       startTime,
       endTime,
-      createdBy,
+      createdBy: user,
     });
 
     const post = await Post.create({
