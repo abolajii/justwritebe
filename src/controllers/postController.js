@@ -833,7 +833,7 @@ const processPostsForTrendingWords = async () => {
 exports.createVote = async (req, res) => {
   const user = req.user.id;
   try {
-    const { question, options, postContent, startTime, endTime } = req.body;
+    const { question, options, startTime, endTime } = req.body;
 
     if (!question || !options || options.length < 2) {
       return res.status(400).json({
@@ -851,8 +851,7 @@ exports.createVote = async (req, res) => {
     });
 
     const post = await Post.create({
-      content: postContent,
-      type: "poll",
+      postType: "poll",
       pollId: poll._id,
       user,
     });
