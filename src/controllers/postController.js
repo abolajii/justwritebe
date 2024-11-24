@@ -7,6 +7,7 @@ const TrendingWord = require("../models/TrendingWord");
 const { createNotification } = require("../utils");
 
 const ImageKit = require("imagekit");
+const Poll = require("../models/Poll");
 
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
@@ -829,4 +830,78 @@ const processPostsForTrendingWords = async () => {
   }
 };
 
-// processPostsForTrendingWords();
+exports.createVote = async (req, res) => {
+  const user = req.user.id;
+  try {
+    const { question, options, postContent, startTime, endTime } = req.body;
+
+    if (!question || !options || options.length < 2) {
+      return res.status(400).json({
+        message: "A poll must have a question and at least 2 options.",
+      });
+    }
+
+    const pollOptions = options.map((option) => ({ optionText: option }));
+    const poll = await Poll.create({
+      question,
+      options: pollOptions,
+      startTime,
+      endTime,
+      createdBy,
+    });
+
+    const post = await Post.create({
+      content: postContent,
+      type: "poll",
+      pollId: poll._id,
+      user,
+    });
+
+    res.status(201).json({ poll, post });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to create poll." });
+  }
+};
+
+exports.votePoll = async (req, res) => {
+  try {
+    const { pollId, optionId } = req.body;
+
+    const userId = req.user.id;
+
+    const poll = await Poll.findById(pollId);
+    if (!poll) {
+      return res.status(404).json({ message: "Poll not found." });
+    }
+
+    // Check if poll is active
+    if (poll.endTime < new Date()) {
+      return res.status(400).json({ message: "Poll has ended." });
+    }
+
+    // Check if user has already voted
+    const hasVoted = poll.options.some((option) =>
+      option.votes.some((vote) => vote.userId.toString() === userId)
+    );
+    if (hasVoted) {
+      return res
+        .status(400)
+        .json({ message: "User has already voted on this poll." });
+    }
+
+    // Add vote
+    const option = poll.options.id(optionId);
+    if (!option) {
+      return res.status(404).json({ message: "Option not found." });
+    }
+
+    option.votes.push({ userId, optionId });
+    await poll.save();
+
+    res.status(200).json({ message: "Vote recorded successfully.", poll });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to record vote." });
+  }
+};

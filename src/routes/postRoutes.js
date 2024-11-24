@@ -12,6 +12,8 @@ const {
   handleBookMark,
   getPostById,
   schedulePost,
+  createVote,
+  votePoll,
 } = require("../controllers/postController");
 const { verifyToken } = require("../middleware");
 
@@ -23,6 +25,9 @@ router.post("/comments/:commentId/reply", [verifyToken], replyToComment);
 
 router.get("/feeds", [verifyToken], getFeeds);
 router.get("/trends", [verifyToken], getTrendingWords);
+
+router.post("/poll/create", [verifyToken], createVote);
+router.post("/poll/vote", [verifyToken], votePoll);
 
 router.post("/posts/:postId/share", [verifyToken], sharePost);
 router.get("/posts/:postId", [verifyToken], getPostById);

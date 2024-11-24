@@ -12,9 +12,10 @@ const PostSchema = new mongoose.Schema(
       default: null,
     }, // Content of the post (optional for shared posts)
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // User who created the post
+
     postType: {
       type: String,
-      enum: ["normal", "quoted", "shared"], // Types of posts: normal, quoted, shared
+      enum: ["scheduled", "normal", "shared", "quote", "poll"],
       default: "normal",
     },
     originalPost: {
@@ -36,6 +37,7 @@ const PostSchema = new mongoose.Schema(
     },
     scheduledTime: { type: Date, default: null }, // Time when the post is scheduled to be published
     isScheduled: { type: Boolean, default: false },
+    pollId: { type: mongoose.Schema.Types.ObjectId, ref: "Poll" },
   },
   { timestamps: true }
 );
