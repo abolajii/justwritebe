@@ -770,17 +770,26 @@ exports.getPostById = async (req, res) => {
 };
 
 exports.schedulePost = async (req, res) => {
-  const { content, imageUrl, scheduledTime, visibility } = req.body;
+  const { content, scheduledTime, visibility } = req.body;
 
   try {
     const newPost = await Post.create({
       content,
-      imageUrl,
       user: req.user.id,
       scheduledTime,
       isScheduled: true,
       visibility,
     });
+
+    if (req.files && req.files.imagePost) {
+      const uploadResponse = await imagekit.upload({
+        file: req.files.imagePost.data.toString("base64"), // base64 encoded string
+        fileName: `${newPost._id}_${Date.now()}`, // A unique file name
+        folder: `/posts/${newPost._id}`, // Optional folder path in ImageKit
+      });
+      //     // Set the imageUrl to the path where the image is accessible
+      newPost.imageUrl = uploadResponse.url;
+    }
 
     res.status(201).json(newPost);
   } catch (error) {
