@@ -859,7 +859,7 @@ exports.createVote = async (req, res) => {
 
     res.status(201).json({ poll, post });
   } catch (error) {
-    console.error(error);
+    console.log(error);
     res.status(500).json({ message: "Failed to create poll." });
   }
 };
@@ -901,7 +901,8 @@ exports.votePoll = async (req, res) => {
 
     res.status(200).json({ message: "Vote recorded successfully.", poll });
   } catch (error) {
-    console.error(error);
+    console.log(error);
+
     res.status(500).json({ message: "Failed to record vote." });
   }
 };
