@@ -16,7 +16,6 @@ const PollSchema = new Schema({
   question: { type: String, required: true },
   options: { type: [PollOptionSchema], required: true },
   createdBy: { type: Types.ObjectId, ref: "User", required: true },
-  postId: { type: Types.ObjectId, ref: "Post", required: true },
   startTime: { type: Date, default: Date.now },
   endTime: { type: Date, required: true },
   isActive: { type: Boolean, default: true }, // Automatically deactivate after endTime
