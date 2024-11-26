@@ -524,20 +524,33 @@ exports.shareComment = async (req, res) => {
 exports.getFeeds = async (req, res) => {
   const userId = req.user.id;
 
+  // Extract pagination parameters with defaults
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 10;
+  const skip = (page - 1) * pageSize;
+
   try {
     // Fetch the logged-in user and populate the list of people they follow
     const user = await User.findById(userId).populate("following");
     const followedUsers = user.following.map((f) => f._id);
 
-    // Fetch all posts from followed users and the logged-in user
-    const posts = await Post.find({
+    // Create the base query
+    const baseQuery = {
       $or: [
         { user: { $in: followedUsers }, visibility: "followers" }, // Posts from followed users
         { user: userId }, // Posts from the logged-in user
       ],
       postType: { $in: ["normal", "quoted", "shared"] }, // Fetch normal, quoted, and shared posts
-    })
+    };
+
+    // Count total posts matching the query (for pagination info)
+    const totalPosts = await Post.countDocuments(baseQuery);
+
+    // Fetch paginated posts
+    const posts = await Post.find(baseQuery)
       .sort({ createdAt: -1 }) // Sort by newest first
+      .skip(skip)
+      .limit(pageSize)
       .populate("user originalPost") // Populate the user and originalPost
       .populate({
         path: "originalPost", // Populate the original post and its related data
@@ -563,8 +576,7 @@ exports.getFeeds = async (req, res) => {
         path: "comments", // Populate the comments for the main post
         populate: { path: "user", model: "User" }, // Populate the user of each comment
       })
-      .populate("mentions") // Populate the mentions field
-      .exec();
+      .populate("mentions"); // Populate the mentions field
 
     // Map over posts to include `isBookmarked` field
     const postsWithBookmarkStatus = posts.map((post) => {
@@ -575,9 +587,27 @@ exports.getFeeds = async (req, res) => {
       };
     });
 
-    return res.status(200).json(postsWithBookmarkStatus);
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalPosts / pageSize);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    return res.status(200).json({
+      posts: postsWithBookmarkStatus,
+      pagination: {
+        currentPage: page,
+        pageSize,
+        totalPosts,
+        totalPages,
+        hasNextPage,
+        hasPrevPage,
+      },
+    });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching feed", error });
+    console.error("Error fetching feed:", error);
+    res
+      .status(500)
+      .json({ message: "Error fetching feed", error: error.message });
   }
 };
 
@@ -799,8 +829,6 @@ exports.schedulePost = async (req, res) => {
 
 // Function to process all posts and update trending words
 const processPostsForTrendingWords = async () => {
-  console.log("Running");
-
   try {
     const posts = await Post.find(); // Fetch all posts
     const wordCount = {};
