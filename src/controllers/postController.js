@@ -524,36 +524,30 @@ exports.shareComment = async (req, res) => {
 exports.getFeeds = async (req, res) => {
   const userId = req.user.id;
 
-  // Extract pagination parameters with defaults
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const skip = (page - 1) * pageSize;
 
   try {
-    // Fetch the logged-in user and populate the list of people they follow
     const user = await User.findById(userId).populate("following");
     const followedUsers = user.following.map((f) => f._id);
 
-    // Create the base query - now including poll type
     const baseQuery = {
       $or: [
         { user: { $in: followedUsers }, visibility: "followers" },
         { user: userId },
       ],
-      postType: { $in: ["normal", "quoted", "shared", "poll"] }, // Added "poll" type
+      postType: { $in: ["normal", "quoted", "shared", "poll"] },
     };
 
-    // Count total posts matching the query (for pagination info)
     const totalPosts = await Post.countDocuments(baseQuery);
 
-    // Fetch paginated posts with enhanced poll population
     const posts = await Post.find(baseQuery)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(pageSize)
       .populate({
         path: "pollId",
-        select: "question options startTime endTime isActive",
         populate: {
           path: "options.votes.user",
           model: "User",
@@ -582,8 +576,6 @@ exports.getFeeds = async (req, res) => {
           },
           {
             path: "pollId",
-            model: "Poll",
-            select: "question options startTime endTime isActive",
             populate: {
               path: "options.votes.user",
               model: "User",
@@ -608,8 +600,6 @@ exports.getFeeds = async (req, res) => {
               },
               {
                 path: "pollId",
-                model: "Poll",
-                select: "question options startTime endTime isActive",
                 populate: {
                   path: "options.votes.user",
                   model: "User",
@@ -633,50 +623,54 @@ exports.getFeeds = async (req, res) => {
         select: "username name profilePic isVerified",
       });
 
-    // Process posts to include additional metadata
     const processedPosts = posts.map((post) => {
       const postObj = post.toObject();
-
-      // Add bookmark status
       postObj.isBookmarked = post.bookmarks.includes(userId);
 
-      // Add vote status for polls
+      // Process poll data if exists
       if (post.pollId) {
-        postObj.pollId.options = post.pollId.options.map((option) => {
-          const optionObj = option.toObject();
-          optionObj.hasVoted = option.votes.some(
-            (vote) => vote.user._id.toString() === userId
-          );
-          optionObj.voteCount = option.votes.length;
-          // Remove detailed vote information for privacy
-          delete optionObj.votes;
-          return optionObj;
+        // Calculate total votes across all options
+        let totalVotes = 0;
+        post.pollId.options.forEach((option) => {
+          totalVotes += option.votes.length;
         });
 
-        // Calculate total votes for percentage calculation
-        const totalVotes = postObj.pollId.options.reduce(
-          (sum, option) => sum + option.voteCount,
-          0
-        );
+        // Process each option
+        postObj.pollId.options = post.pollId.options.map((option) => {
+          const optionObj = option.toObject();
+          const voteCount = option.votes.length;
+          const hasVoted = option.votes.some(
+            (vote) => vote.user && vote.user._id.toString() === userId
+          );
 
-        // Add vote percentage to each option
-        postObj.pollId.options = postObj.pollId.options.map((option) => ({
-          ...option,
-          votePercentage:
-            totalVotes > 0
-              ? ((option.voteCount / totalVotes) * 100).toFixed(1)
-              : 0,
-        }));
+          return {
+            _id: optionObj._id,
+            optionText: optionObj.optionText,
+            voteCount,
+            hasVoted,
+            votePercentage:
+              totalVotes > 0
+                ? ((voteCount / totalVotes) * 100).toFixed(1)
+                : "0",
+            // Include votes array only if needed for specific features
+            votes: optionObj.votes.map((vote) => ({
+              user: vote.user,
+              _id: vote._id,
+            })),
+          };
+        });
 
-        // Add metadata about poll status
-        postObj.pollId.hasEnded = new Date() > new Date(post.pollId.endTime);
+        // Add poll metadata
         postObj.pollId.totalVotes = totalVotes;
+        postObj.pollId.hasEnded = new Date() > new Date(post.pollId.endTime);
+        postObj.pollId.hasVoted = postObj.pollId.options.some(
+          (option) => option.hasVoted
+        );
       }
 
       return postObj;
     });
 
-    // Calculate pagination metadata
     const totalPages = Math.ceil(totalPosts / pageSize);
     const hasNextPage = page < totalPages;
     const hasPrevPage = page > 1;
@@ -699,7 +693,6 @@ exports.getFeeds = async (req, res) => {
       .json({ message: "Error fetching feed", error: error.message });
   }
 };
-
 // Controller to like or unlike a post
 exports.toggleLikePost = async (req, res) => {
   const { postId } = req.params; // Post ID from URL parameters
