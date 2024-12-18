@@ -2,12 +2,12 @@ const fs = require("fs");
 const path = require("path");
 const User = require("../models/User");
 const Post = require("../models/Post");
+const Poll = require("../models/Poll");
 const Comment = require("../models/Comment");
 const TrendingWord = require("../models/TrendingWord");
 const { createNotification } = require("../utils");
 
 const ImageKit = require("imagekit");
-const Poll = require("../models/Poll");
 
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
