@@ -551,6 +551,7 @@ exports.getFeeds = async (req, res) => {
       .sort({ createdAt: -1 }) // Sort by newest first
       .skip(skip)
       .limit(pageSize)
+      .populate("pollId")
       .populate("user originalPost") // Populate the user and originalPost
       .populate({
         path: "originalPost", // Populate the original post and its related data
