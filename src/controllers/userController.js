@@ -547,3 +547,86 @@ exports.updateUser = async (req, res) => {
     return res.status(500).json({ message: "An error occurred", error });
   }
 };
+
+exports.getUserActivityInfo = async (req, res) => {
+  try {
+    const userId = req.user.id || req.params.userId; // Extract userId from request params
+    const tag = req.query.tag; // Extract tag (posts, likes, media, replies, etc.) from query parameters
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    let activity = null;
+
+    switch (tag) {
+      case "posts":
+        // Get all posts created by the user
+        activity = await Post.find({ user: userId })
+          .populate("user", "username profilePic")
+          .populate("comments", "content user createdAt")
+          .populate("likes", "username profilePic")
+          .sort({ createdAt: -1 });
+        break;
+
+      case "likes":
+        // Get all posts the user liked
+        activity = await Post.find({ likes: userId })
+          .populate("user", "username profilePic")
+          .populate("comments", "content user createdAt")
+          .sort({ createdAt: -1 });
+        break;
+
+      case "media":
+        // Get all posts by the user that include images
+        activity = await Post.find({
+          user: userId,
+          imageUrl: { $ne: null }, // Check if imageUrl exists
+        })
+          .populate("user", "username profilePic")
+          .sort({ createdAt: -1 });
+        break;
+
+      case "replies":
+        // Get all comments made by the user
+        activity = await Comment.find({ user: userId })
+          .populate("post", "content user createdAt")
+          .populate("user", "username profilePic")
+          .sort({ createdAt: -1 });
+        break;
+
+      case "bookmarks":
+        // Get all posts bookmarked by the user
+        activity = await Post.find({ bookmarks: userId })
+          .populate("user", "username profilePic")
+          .sort({ createdAt: -1 });
+        break;
+
+      case "shared":
+        // Get all posts shared by the user
+        activity = await Post.find({ shares: userId })
+          .populate("user", "username profilePic")
+          .populate("originalPost", "content user imageUrl")
+          .sort({ createdAt: -1 });
+        break;
+
+      default:
+        return res.status(400).json({
+          message:
+            "Invalid tag. Valid tags are: posts, likes, media, replies, bookmarks, shared",
+        });
+    }
+
+    // Respond with activity data
+    return res.status(200).json({
+      message: `${tag} activity retrieved successfully`,
+      activity,
+    });
+  } catch (error) {
+    console.error("Error retrieving user activity info:", error);
+    return res.status(500).json({
+      message: "Error retrieving user activity info",
+      error: error.message,
+    });
+  }
+};

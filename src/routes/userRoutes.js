@@ -14,6 +14,7 @@ const {
   getMutualFollowers,
   getFollowersStories,
   updateUser,
+  getUserActivityInfo,
 } = require("../controllers/userController");
 
 const { verifyToken } = require("../middleware");
@@ -21,6 +22,8 @@ const { verifyToken } = require("../middleware");
 const router = express.Router();
 
 router.get("/users", [verifyToken], getAllUsers);
+
+router.get("/activity/:userId", [verifyToken], getUserActivityInfo);
 
 router.get("/search", [verifyToken], globalSearch);
 

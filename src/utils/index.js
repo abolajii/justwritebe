@@ -25,7 +25,7 @@ exports.getUserProfileAndPosts = async (userId) => {
   try {
     // Fetch user details including bio and location
     const user = await User.findOne({ username: userId }).select(
-      "username name email profilePic bio location followers following isVerified"
+      "username name email profilePic bio location followers following isVerified link"
     ); // Including bio and location
 
     if (!user) {
@@ -35,7 +35,7 @@ exports.getUserProfileAndPosts = async (userId) => {
     // Fetch the posts of the user
     const posts = await Post.find({ user: user._id })
       .populate("user", "username name profilePic isVerified") // Populate the 'user' field to get user info
-      .populate("comments") // Optional: populate comments if needed
+      // .populate("comments") // Optional: populate comments if needed
       .sort({ createdAt: -1 }); // Sort posts by creation time (newest first)
 
     return { user, posts };
@@ -43,4 +43,10 @@ exports.getUserProfileAndPosts = async (userId) => {
     console.error(err);
     throw new Error("Error fetching user profile and posts");
   }
+};
+
+exports.getUserActivityInfo = async (userId) => {
+  const tag = req.query.tag;
+  // tag either posts, likes, media, replies
+  // get all users post, get post the user likes, and also get user media, and comment, replies to post
 };
