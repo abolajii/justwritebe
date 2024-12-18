@@ -629,11 +629,24 @@ exports.getFeeds = async (req, res) => {
 
       // Process poll data if exists
       if (post.pollId) {
-        // Calculate total votes across all options
-        let totalVotes = 0;
+        // Get unique voters across all options
+        const uniqueVoters = new Map();
+
         post.pollId.options.forEach((option) => {
-          totalVotes += option.votes.length;
+          option.votes.forEach((vote) => {
+            if (vote.user) {
+              uniqueVoters.set(vote.user._id.toString(), {
+                _id: vote.user._id,
+                username: vote.user.username,
+                name: vote.user.name,
+                profilePic: vote.user.profilePic,
+              });
+            }
+          });
         });
+
+        // Convert voters map to array
+        const allVoters = Array.from(uniqueVoters.values());
 
         // Process each option
         postObj.pollId.options = post.pollId.options.map((option) => {
@@ -649,19 +662,29 @@ exports.getFeeds = async (req, res) => {
             voteCount,
             hasVoted,
             votePercentage:
-              totalVotes > 0
-                ? ((voteCount / totalVotes) * 100).toFixed(1)
+              allVoters.length > 0
+                ? ((voteCount / allVoters.length) * 100).toFixed(1)
                 : "0",
-            // Include votes array only if needed for specific features
-            votes: optionObj.votes.map((vote) => ({
-              user: vote.user,
-              _id: vote._id,
-            })),
+            // Include votes array with user details
+            votes: optionObj.votes
+              .filter((vote) => vote.user) // Filter out any votes without user data
+              .map((vote) => ({
+                _id: vote._id,
+                user: {
+                  _id: vote.user._id,
+                  username: vote.user.username,
+                  name: vote.user.name,
+                  profilePic: vote.user.profilePic,
+                },
+              })),
           };
         });
 
         // Add poll metadata
-        postObj.pollId.totalVotes = totalVotes;
+        postObj.pollId.totalVotes = {
+          count: allVoters.length,
+          voters: allVoters,
+        };
         postObj.pollId.hasEnded = new Date() > new Date(post.pollId.endTime);
         postObj.pollId.hasVoted = postObj.pollId.options.some(
           (option) => option.hasVoted
