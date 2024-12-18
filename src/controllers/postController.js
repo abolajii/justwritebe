@@ -2,7 +2,6 @@ const fs = require("fs");
 const path = require("path");
 const User = require("../models/User");
 const Post = require("../models/Post");
-const Poll = require("../models/Poll");
 const Comment = require("../models/Comment");
 const TrendingWord = require("../models/TrendingWord");
 const { createNotification } = require("../utils");
@@ -535,146 +534,58 @@ exports.getFeeds = async (req, res) => {
     const user = await User.findById(userId).populate("following");
     const followedUsers = user.following.map((f) => f._id);
 
-    // Create the base query - now including poll type
+    // Create the base query
     const baseQuery = {
       $or: [
-        { user: { $in: followedUsers }, visibility: "followers" },
-        { user: userId },
+        { user: { $in: followedUsers }, visibility: "followers" }, // Posts from followed users
+        { user: userId }, // Posts from the logged-in user
       ],
-      postType: { $in: ["normal", "quoted", "shared", "poll"] }, // Added "poll" type
+      postType: { $in: ["normal", "quoted", "shared"] }, // Fetch normal, quoted, and shared posts
     };
 
     // Count total posts matching the query (for pagination info)
     const totalPosts = await Post.countDocuments(baseQuery);
 
-    // Fetch paginated posts with enhanced poll population
+    // Fetch paginated posts
     const posts = await Post.find(baseQuery)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1 }) // Sort by newest first
       .skip(skip)
       .limit(pageSize)
+      .populate("pollId")
+      .populate("user originalPost") // Populate the user and originalPost
       .populate({
-        path: "pollId",
-        select: "question options startTime endTime isActive",
-        populate: {
-          path: "options.votes.user",
-          model: "User",
-          select: "username name profilePic",
-        },
-      })
-      .populate({
-        path: "user",
-        select: "username name profilePic isVerified",
-      })
-      .populate({
-        path: "originalPost",
+        path: "originalPost", // Populate the original post and its related data
         populate: [
+          { path: "user", model: "User" }, // Populate the user of the original post
           {
-            path: "user",
-            model: "User",
-            select: "username name profilePic isVerified",
+            path: "comments", // Populate the comments of the original post
+            populate: { path: "user", model: "User" }, // Populate the user for each comment
           },
           {
-            path: "comments",
-            populate: {
-              path: "user",
-              model: "User",
-              select: "username name profilePic isVerified",
-            },
-          },
-          {
-            path: "pollId",
-            model: "Poll",
-            select: "question options startTime endTime isActive",
-            populate: {
-              path: "options.votes.user",
-              model: "User",
-              select: "username name profilePic",
-            },
-          },
-          {
-            path: "originalPost",
+            path: "originalPost", // Recursively populate the originalPost within originalPost
             populate: [
+              { path: "user", model: "User" }, // Populate the user of the nested original post
               {
-                path: "user",
-                model: "User",
-                select: "username name profilePic isVerified",
-              },
-              {
-                path: "comments",
-                populate: {
-                  path: "user",
-                  model: "User",
-                  select: "username name profilePic isVerified",
-                },
-              },
-              {
-                path: "pollId",
-                model: "Poll",
-                select: "question options startTime endTime isActive",
-                populate: {
-                  path: "options.votes.user",
-                  model: "User",
-                  select: "username name profilePic",
-                },
+                path: "comments", // Populate the comments of the nested original post
+                populate: { path: "user", model: "User" }, // Populate the user of each nested comment
               },
             ],
           },
         ],
       })
       .populate({
-        path: "comments",
-        populate: {
-          path: "user",
-          model: "User",
-          select: "username name profilePic isVerified",
-        },
+        path: "comments", // Populate the comments for the main post
+        populate: { path: "user", model: "User" }, // Populate the user of each comment
       })
-      .populate({
-        path: "mentions",
-        select: "username name profilePic isVerified",
-      });
+      .populate("mentions"); // Populate the mentions field
 
-    // Process posts to include additional metadata
-    const processedPosts = posts.map((post) => {
-      const postObj = post.toObject();
-
-      // Add bookmark status
-      postObj.isBookmarked = post.bookmarks.includes(userId);
-
-      // Add vote status for polls
-      if (post.pollId) {
-        postObj.pollId.options = post.pollId.options.map((option) => {
-          const optionObj = option.toObject();
-          optionObj.hasVoted = option.votes.some(
-            (vote) => vote.user._id.toString() === userId
-          );
-          optionObj.voteCount = option.votes.length;
-          // Remove detailed vote information for privacy
-          delete optionObj.votes;
-          return optionObj;
-        });
-
-        // Calculate total votes for percentage calculation
-        const totalVotes = postObj.pollId.options.reduce(
-          (sum, option) => sum + option.voteCount,
-          0
-        );
-
-        // Add vote percentage to each option
-        postObj.pollId.options = postObj.pollId.options.map((option) => ({
-          ...option,
-          votePercentage:
-            totalVotes > 0
-              ? ((option.voteCount / totalVotes) * 100).toFixed(1)
-              : 0,
-        }));
-
-        // Add metadata about poll status
-        postObj.pollId.hasEnded = new Date() > new Date(post.pollId.endTime);
-        postObj.pollId.totalVotes = totalVotes;
-      }
-
-      return postObj;
+    // Map over posts to include `isBookmarked` field
+    const postsWithBookmarkStatus = posts.map((post) => {
+      const isBookmarked = post.bookmarks.includes(userId); // Check if the current user has bookmarked the post
+      return {
+        ...post._doc, // Include the original post data
+        isBookmarked, // Add the bookmark status for the current user
+      };
     });
 
     // Calculate pagination metadata
@@ -683,7 +594,7 @@ exports.getFeeds = async (req, res) => {
     const hasPrevPage = page > 1;
 
     return res.status(200).json({
-      posts: processedPosts,
+      posts: postsWithBookmarkStatus,
       pagination: {
         currentPage: page,
         pageSize,
