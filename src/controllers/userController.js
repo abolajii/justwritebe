@@ -564,7 +564,7 @@ exports.getUserActivityInfo = async (req, res) => {
         // Get all posts created by the user
         activity = await Post.find({ user: userId })
           .populate("user", "username name profilePic")
-          // .populate("comments", "content user createdAt")
+          .populate("pollId")
           // .populate("likes", "username profilePic")
           .sort({ createdAt: -1 });
         break;
