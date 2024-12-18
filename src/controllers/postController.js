@@ -1007,7 +1007,7 @@ exports.votePoll = async (req, res) => {
 
     // Check if user has already voted
     const hasVoted = poll.options.some((option) =>
-      option.votes.some((vote) => vote.userId.toString() === userId)
+      option.votes.some((vote) => vote.user.toString() === userId)
     );
     if (hasVoted) {
       return res
@@ -1021,7 +1021,7 @@ exports.votePoll = async (req, res) => {
       return res.status(404).json({ message: "Option not found." });
     }
 
-    option.votes.push({ userId, optionId });
+    option.votes.push({ user: userId, option: optionId });
     await poll.save();
 
     res.status(200).json({ message: "Vote recorded successfully.", poll });
