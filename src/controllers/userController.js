@@ -563,16 +563,16 @@ exports.getUserActivityInfo = async (req, res) => {
       case "posts":
         // Get all posts created by the user
         activity = await Post.find({ user: userId })
-          .populate("user", "username profilePic")
-          .populate("comments", "content user createdAt")
-          .populate("likes", "username profilePic")
+          .populate("user", "username name profilePic")
+          // .populate("comments", "content user createdAt")
+          // .populate("likes", "username profilePic")
           .sort({ createdAt: -1 });
         break;
 
       case "likes":
         // Get all posts the user liked
         activity = await Post.find({ likes: userId })
-          .populate("user", "username profilePic")
+          .populate("user", "username name profilePic")
           .populate("comments", "content user createdAt")
           .sort({ createdAt: -1 });
         break;
@@ -583,7 +583,7 @@ exports.getUserActivityInfo = async (req, res) => {
           user: userId,
           imageUrl: { $ne: null }, // Check if imageUrl exists
         })
-          .populate("user", "username profilePic")
+          .populate("user", "username name profilePic")
           .sort({ createdAt: -1 });
         break;
 
@@ -591,21 +591,21 @@ exports.getUserActivityInfo = async (req, res) => {
         // Get all comments made by the user
         activity = await Comment.find({ user: userId })
           .populate("post", "content user createdAt")
-          .populate("user", "username profilePic")
+          .populate("user", "username name profilePic")
           .sort({ createdAt: -1 });
         break;
 
       case "bookmarks":
         // Get all posts bookmarked by the user
         activity = await Post.find({ bookmarks: userId })
-          .populate("user", "username profilePic")
+          .populate("user", "username name profilePic")
           .sort({ createdAt: -1 });
         break;
 
       case "shared":
         // Get all posts shared by the user
         activity = await Post.find({ shares: userId })
-          .populate("user", "username profilePic")
+          .populate("user", "username name profilePic")
           .populate("originalPost", "content user imageUrl")
           .sort({ createdAt: -1 });
         break;
