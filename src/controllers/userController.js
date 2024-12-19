@@ -943,55 +943,172 @@ exports.addPostToFolder = async (req, res) => {
 // };
 
 exports.getUserBookmarks = async (req, res) => {
-  const userId = req.user.id; // Assuming user authentication middleware adds this
-  const { query, folder } = req.query;
+  const userId = req.user.id;
+  const { query } = req.query;
 
   try {
-    // Build the search criteria
-    const searchCriteria = { user: userId };
-
-    // Add search by query (for post content, notes, or user details)
+    // First get all folders
+    let folderQuery = { user: userId };
     if (query) {
-      searchCriteria.$or = [
-        { "post.content": { $regex: query, $options: "i" } }, // Search in post content
-        { notes: { $regex: query, $options: "i" } }, // Search in notes
-        { "post.user.name": { $regex: query, $options: "i" } }, // Search in user's name
-        { "post.user.username": { $regex: query, $options: "i" } }, // Search in user's username
+      folderQuery.name = { $regex: query, $options: "i" };
+    }
+
+    const folders = await Folder.find(folderQuery)
+      .select("name createdAt")
+      .lean();
+
+    // Then get bookmarks
+    const bookmarkQuery = { user: userId };
+    if (query) {
+      bookmarkQuery.$or = [
+        { "post.content": { $regex: query, $options: "i" } },
+        { notes: { $regex: query, $options: "i" } },
+        { "post.user.name": { $regex: query, $options: "i" } },
+        { "post.user.username": { $regex: query, $options: "i" } },
       ];
     }
 
-    // Filter by folder
-    if (folder) {
-      searchCriteria.folder = folder;
-    }
-
-    // Perform the search
-    const bookmarks = await Bookmark.find(searchCriteria)
+    const bookmarks = await Bookmark.find(bookmarkQuery)
       .populate({
         path: "post",
-        select: "content imageUrl user", // Include relevant post fields
-        populate: {
-          path: "user",
-          select: "name username email", // Include user details
-        },
+        select: "content imageUrl user postType pollId originalPost",
+        populate: [
+          {
+            path: "user",
+            select: "username name profilePic isVerified",
+          },
+          {
+            path: "pollId",
+            populate: {
+              path: "options.votes.user",
+              model: "User",
+              select: "username name profilePic",
+            },
+          },
+          {
+            path: "originalPost",
+            populate: [
+              {
+                path: "user",
+                model: "User",
+                select: "username name profilePic isVerified",
+              },
+              {
+                path: "pollId",
+                populate: {
+                  path: "options.votes.user",
+                  model: "User",
+                  select: "username name profilePic",
+                },
+              },
+            ],
+          },
+        ],
       })
       .populate({
         path: "folder",
-        select: "name", // Include folder name
-      });
+        select: "name category",
+      })
+      .sort({ createdAt: -1 })
+      .lean();
 
-    if (!bookmarks || bookmarks.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No bookmarks found matching your criteria" });
-    }
+    // Process bookmarks to separate foldered and unfoldered
+    const bookmarksWithoutFolder = [];
+    const folderMap = new Map(
+      folders.map((folder) => [
+        folder._id.toString(),
+        {
+          ...folder,
+          bookmarks: [],
+        },
+      ])
+    );
+
+    // Process polls in bookmarks
+    bookmarks.forEach((bookmark) => {
+      if (bookmark.post?.pollId) {
+        const post = bookmark.post;
+        const pollData = post.pollId;
+
+        // Get unique voters
+        const uniqueVoters = new Map();
+        pollData.options.forEach((option) => {
+          option.votes.forEach((vote) => {
+            if (vote.user) {
+              uniqueVoters.set(vote.user._id.toString(), {
+                _id: vote.user._id,
+                username: vote.user.username,
+                name: vote.user.name,
+                profilePic: vote.user.profilePic,
+              });
+            }
+          });
+        });
+
+        const allVoters = Array.from(uniqueVoters.values());
+
+        // Process poll options
+        post.pollId.options = pollData.options.map((option) => ({
+          _id: option._id,
+          optionText: option.optionText,
+          voteCount: option.votes.length,
+          hasVoted: option.votes.some(
+            (vote) => vote.user && vote.user._id.toString() === userId
+          ),
+          votePercentage:
+            allVoters.length > 0
+              ? ((option.votes.length / allVoters.length) * 100).toFixed(1)
+              : "0",
+          votes: option.votes
+            .filter((vote) => vote.user)
+            .map((vote) => ({
+              _id: vote._id,
+              user: {
+                _id: vote.user._id,
+                username: vote.user.username,
+                name: vote.user.name,
+                profilePic: vote.user.profilePic,
+              },
+            })),
+        }));
+
+        post.pollId.totalVotes = {
+          count: allVoters.length,
+          voters: allVoters,
+        };
+        post.pollId.hasEnded = new Date() > new Date(pollData.endTime);
+        post.pollId.hasVoted = post.pollId.options.some(
+          (option) => option.hasVoted
+        );
+      }
+
+      if (bookmark.folder) {
+        const folderId = bookmark.folder._id.toString();
+        if (folderMap.has(folderId)) {
+          folderMap.get(folderId).bookmarks.push(bookmark);
+        }
+      } else {
+        bookmarksWithoutFolder.push(bookmark);
+      }
+    });
+
+    // Convert folderMap back to array
+    const foldersWithBookmarks = Array.from(folderMap.values()).sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
 
     res.status(200).json({
       success: true,
-      data: bookmarks,
+      data: {
+        folders: foldersWithBookmarks,
+        unfolderedBookmarks: bookmarksWithoutFolder,
+      },
     });
   } catch (error) {
-    console.error("Error searching bookmarks:", error);
-    return res.status(500).json({ message: "An error occurred", error });
+    console.error("Error fetching bookmarks:", error);
+    return res.status(500).json({
+      message: "Error fetching bookmarks",
+      error: error.message,
+    });
   }
 };
