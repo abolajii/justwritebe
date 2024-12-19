@@ -1008,7 +1008,6 @@ exports.createVote = async (req, res) => {
 exports.votePoll = async (req, res) => {
   try {
     const { pollId, optionId } = req.body;
-
     const userId = req.user.id;
 
     const poll = await Poll.findById(pollId);
@@ -1021,29 +1020,61 @@ exports.votePoll = async (req, res) => {
       return res.status(400).json({ message: "Poll has ended." });
     }
 
-    // Check if user has already voted
-    const hasVoted = poll.options.some((option) =>
-      option.votes.some((vote) => vote.user.toString() === userId)
-    );
-    if (hasVoted) {
-      return res
-        .status(400)
-        .json({ message: "User has already voted on this poll." });
-    }
+    // Find user's current vote if any
+    let currentVotedOption = null;
+    let currentVoteId = null;
 
-    // Add vote
-    const option = poll.options.id(optionId);
-    if (!option) {
+    poll.options.forEach((option) => {
+      const existingVote = option.votes.find(
+        (vote) => vote.user.toString() === userId
+      );
+      if (existingVote) {
+        currentVotedOption = option._id.toString();
+        currentVoteId = existingVote._id;
+      }
+    });
+
+    // Get the target option user wants to vote for
+    const targetOption = poll.options.id(optionId);
+    if (!targetOption) {
       return res.status(404).json({ message: "Option not found." });
     }
 
-    option.votes.push({ user: userId, option: optionId });
+    // Case 1: User is clicking the same option they voted for - remove their vote
+    if (currentVotedOption === optionId) {
+      targetOption.votes = targetOption.votes.filter(
+        (vote) => vote.user.toString() !== userId
+      );
+      await poll.save();
+      return res.status(200).json({
+        message: "Vote removed successfully.",
+        poll,
+        action: "removed",
+      });
+    }
+
+    // Case 2: User had voted for a different option - remove old vote and add new one
+    if (currentVotedOption) {
+      const oldOption = poll.options.id(currentVotedOption);
+      oldOption.votes = oldOption.votes.filter(
+        (vote) => vote.user.toString() !== userId
+      );
+    }
+
+    // Case 3: Add new vote (applies to both new votes and vote changes)
+    targetOption.votes.push({ user: userId, option: optionId });
+
     await poll.save();
 
-    res.status(200).json({ message: "Vote recorded successfully.", poll });
+    return res.status(200).json({
+      message: currentVotedOption
+        ? "Vote changed successfully."
+        : "Vote recorded successfully.",
+      poll,
+      action: currentVotedOption ? "changed" : "added",
+    });
   } catch (error) {
-    console.log(error);
-
-    res.status(500).json({ message: "Failed to record vote." });
+    console.error("Vote error:", error);
+    res.status(500).json({ message: "Failed to process vote." });
   }
 };
