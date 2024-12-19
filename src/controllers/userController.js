@@ -550,66 +550,38 @@ exports.updateUser = async (req, res) => {
 
 exports.getUserActivityInfo = async (req, res) => {
   try {
-    const userId = req.user.id || req.params.userId; // Extract userId from request params
-    const tag = req.query.tag; // Extract tag (posts, likes, media, replies, etc.) from query parameters
+    const userId = req.user.id || req.params.userId;
+    const tag = req.query.tag;
 
     if (!userId) {
       return res.status(400).json({ message: "User ID is required" });
     }
 
+    let query = {};
     let activity = null;
 
     switch (tag) {
       case "posts":
-        // Get all posts created by the user
-        activity = await Post.find({ user: userId })
-          .populate("user", "username name profilePic")
-          .populate("pollId")
-          // .populate("likes", "username profilePic")
-          .sort({ createdAt: -1 });
+        query = { user: userId };
         break;
-
       case "likes":
-        // Get all posts the user liked
-        activity = await Post.find({ likes: userId })
-          .populate("user", "username name profilePic")
-          .populate("comments", "content user createdAt")
-          .sort({ createdAt: -1 });
+        query = { likes: userId };
         break;
-
       case "media":
-        // Get all posts by the user that include images
-        activity = await Post.find({
-          user: userId,
-          imageUrl: { $ne: null }, // Check if imageUrl exists
-        })
-          .populate("user", "username name profilePic")
-          .sort({ createdAt: -1 });
+        query = { user: userId, imageUrl: { $ne: null } };
         break;
-
+      case "bookmarks":
+        query = { bookmarks: userId };
+        break;
+      case "shared":
+        query = { shares: userId };
+        break;
       case "replies":
-        // Get all comments made by the user
         activity = await Comment.find({ user: userId })
           .populate("post", "content user createdAt")
-          .populate("user", "username name profilePic")
+          .populate("user", "username name profilePic isVerified")
           .sort({ createdAt: -1 });
         break;
-
-      case "bookmarks":
-        // Get all posts bookmarked by the user
-        activity = await Post.find({ bookmarks: userId })
-          .populate("user", "username name profilePic")
-          .sort({ createdAt: -1 });
-        break;
-
-      case "shared":
-        // Get all posts shared by the user
-        activity = await Post.find({ shares: userId })
-          .populate("user", "username name profilePic")
-          .populate("originalPost", "content user imageUrl")
-          .sort({ createdAt: -1 });
-        break;
-
       default:
         return res.status(400).json({
           message:
@@ -617,10 +589,188 @@ exports.getUserActivityInfo = async (req, res) => {
         });
     }
 
-    // Respond with activity data
+    if (tag !== "replies") {
+      activity = await Post.find(query)
+        .sort({ createdAt: -1 })
+        .populate({
+          path: "pollId",
+          populate: {
+            path: "options.votes.user",
+            model: "User",
+            select: "username name profilePic",
+          },
+        })
+        .populate({
+          path: "user",
+          select: "username name profilePic isVerified",
+        })
+        .populate({
+          path: "originalPost",
+          populate: [
+            {
+              path: "user",
+              model: "User",
+              select: "username name profilePic isVerified",
+            },
+            {
+              path: "pollId",
+              model: "Poll",
+              populate: {
+                path: "options.votes.user",
+                model: "User",
+                select: "username name profilePic",
+              },
+            },
+          ],
+        })
+        .populate({
+          path: "comments",
+          populate: {
+            path: "user",
+            model: "User",
+            select: "username name profilePic isVerified",
+          },
+        })
+        .populate({
+          path: "mentions",
+          select: "username name profilePic isVerified",
+        });
+    }
+
+    // Format the response
+    const formattedActivity = activity.map((item) => {
+      const itemObj = item.toObject();
+
+      // If it's a post with a poll, format the poll data
+      if (itemObj.pollId) {
+        const uniqueVoters = new Map();
+
+        itemObj.pollId.options.forEach((option) => {
+          option.votes.forEach((vote) => {
+            if (vote.user) {
+              uniqueVoters.set(vote.user._id.toString(), {
+                _id: vote.user._id,
+                username: vote.user.username,
+                name: vote.user.name,
+                profilePic: vote.user.profilePic,
+              });
+            }
+          });
+        });
+
+        const allVoters = Array.from(uniqueVoters.values());
+
+        // Format poll options
+        itemObj.pollId.options = itemObj.pollId.options.map((option) => {
+          const voteCount = option.votes.length;
+          const hasVoted = option.votes.some(
+            (vote) => vote.user && vote.user._id.toString() === userId
+          );
+
+          return {
+            _id: option._id,
+            optionText: option.optionText,
+            voteCount,
+            hasVoted,
+            votePercentage:
+              allVoters.length > 0
+                ? ((voteCount / allVoters.length) * 100).toFixed(1)
+                : "0",
+            votes: option.votes
+              .filter((vote) => vote.user)
+              .map((vote) => ({
+                _id: vote._id,
+                user: {
+                  _id: vote.user._id,
+                  username: vote.user.username,
+                  name: vote.user.name,
+                  profilePic: vote.user.profilePic,
+                },
+              })),
+          };
+        });
+
+        // Add poll metadata
+        itemObj.pollId.totalVotes = {
+          count: allVoters.length,
+          voters: allVoters,
+        };
+        itemObj.pollId.hasEnded = new Date() > new Date(itemObj.pollId.endTime);
+        itemObj.pollId.hasVoted = itemObj.pollId.options.some(
+          (option) => option.hasVoted
+        );
+      }
+
+      // If it's a post, add bookmark status
+      if (tag !== "replies") {
+        itemObj.isBookmarked = item.bookmarks.includes(userId);
+      }
+
+      // If there's an original post with a poll, format that poll data too
+      if (itemObj.originalPost?.pollId) {
+        const uniqueVoters = new Map();
+
+        itemObj.originalPost.pollId.options.forEach((option) => {
+          option.votes.forEach((vote) => {
+            if (vote.user) {
+              uniqueVoters.set(vote.user._id.toString(), {
+                _id: vote.user._id,
+                username: vote.user.username,
+                name: vote.user.name,
+                profilePic: vote.user.profilePic,
+              });
+            }
+          });
+        });
+
+        const allVoters = Array.from(uniqueVoters.values());
+
+        itemObj.originalPost.pollId.options =
+          itemObj.originalPost.pollId.options.map((option) => {
+            const voteCount = option.votes.length;
+            const hasVoted = option.votes.some(
+              (vote) => vote.user && vote.user._id.toString() === userId
+            );
+
+            return {
+              _id: option._id,
+              optionText: option.optionText,
+              voteCount,
+              hasVoted,
+              votePercentage:
+                allVoters.length > 0
+                  ? ((voteCount / allVoters.length) * 100).toFixed(1)
+                  : "0",
+              votes: option.votes
+                .filter((vote) => vote.user)
+                .map((vote) => ({
+                  _id: vote._id,
+                  user: {
+                    _id: vote.user._id,
+                    username: vote.user.username,
+                    name: vote.user.name,
+                    profilePic: vote.user.profilePic,
+                  },
+                })),
+            };
+          });
+
+        itemObj.originalPost.pollId.totalVotes = {
+          count: allVoters.length,
+          voters: allVoters,
+        };
+        itemObj.originalPost.pollId.hasEnded =
+          new Date() > new Date(itemObj.originalPost.pollId.endTime);
+        itemObj.originalPost.pollId.hasVoted =
+          itemObj.originalPost.pollId.options.some((option) => option.hasVoted);
+      }
+
+      return itemObj;
+    });
+
     return res.status(200).json({
       message: `${tag} activity retrieved successfully`,
-      activity,
+      activity: formattedActivity,
     });
   } catch (error) {
     console.error("Error retrieving user activity info:", error);

@@ -1010,7 +1010,12 @@ exports.votePoll = async (req, res) => {
     const { pollId, optionId } = req.body;
     const userId = req.user.id;
 
-    const poll = await Poll.findById(pollId);
+    // Find poll and populate user details for votes
+    const poll = await Poll.findById(pollId).populate({
+      path: "options.votes.user",
+      select: "username name profilePic",
+    });
+
     if (!poll) {
       return res.status(404).json({ message: "Poll not found." });
     }
@@ -1026,7 +1031,7 @@ exports.votePoll = async (req, res) => {
 
     poll.options.forEach((option) => {
       const existingVote = option.votes.find(
-        (vote) => vote.user.toString() === userId
+        (vote) => vote.user._id.toString() === userId
       );
       if (existingVote) {
         currentVotedOption = option._id.toString();
@@ -1043,35 +1048,114 @@ exports.votePoll = async (req, res) => {
     // Case 1: User is clicking the same option they voted for - remove their vote
     if (currentVotedOption === optionId) {
       targetOption.votes = targetOption.votes.filter(
-        (vote) => vote.user.toString() !== userId
+        (vote) => vote.user._id.toString() !== userId
       );
-      await poll.save();
-      return res.status(200).json({
-        message: "Vote removed successfully.",
-        poll,
-        action: "removed",
+    } else {
+      // Case 2: User had voted for a different option - remove old vote
+      if (currentVotedOption) {
+        const oldOption = poll.options.id(currentVotedOption);
+        oldOption.votes = oldOption.votes.filter(
+          (vote) => vote.user._id.toString() !== userId
+        );
+      }
+
+      // Case 3: Add new vote (applies to both new votes and vote changes)
+      const user = await User.findById(userId).select(
+        "username name profilePic"
+      );
+      targetOption.votes.push({
+        user: user,
+        option: optionId,
       });
     }
 
-    // Case 2: User had voted for a different option - remove old vote and add new one
-    if (currentVotedOption) {
-      const oldOption = poll.options.id(currentVotedOption);
-      oldOption.votes = oldOption.votes.filter(
-        (vote) => vote.user.toString() !== userId
-      );
-    }
-
-    // Case 3: Add new vote (applies to both new votes and vote changes)
-    targetOption.votes.push({ user: userId, option: optionId });
-
     await poll.save();
 
+    // Format the response
+    const pollObj = poll.toObject();
+
+    // Get unique voters across all options
+    const uniqueVoters = new Map();
+
+    pollObj.options.forEach((option) => {
+      option.votes.forEach((vote) => {
+        if (vote.user) {
+          uniqueVoters.set(vote.user._id.toString(), {
+            _id: vote.user._id,
+            username: vote.user.username,
+            name: vote.user.name,
+            profilePic: vote.user.profilePic,
+          });
+        }
+      });
+    });
+
+    // Convert voters map to array
+    const allVoters = Array.from(uniqueVoters.values());
+
+    // Process each option
+    const formattedOptions = pollObj.options.map((option) => {
+      const voteCount = option.votes.length;
+      const hasVoted = option.votes.some(
+        (vote) => vote.user && vote.user._id.toString() === userId
+      );
+
+      return {
+        _id: option._id,
+        optionText: option.optionText,
+        voteCount,
+        hasVoted,
+        votePercentage:
+          allVoters.length > 0
+            ? ((voteCount / allVoters.length) * 100).toFixed(1)
+            : "0",
+        votes: option.votes
+          .filter((vote) => vote.user)
+          .map((vote) => ({
+            _id: vote._id,
+            user: {
+              _id: vote.user._id,
+              username: vote.user.username,
+              name: vote.user.name,
+              profilePic: vote.user.profilePic,
+            },
+          })),
+      };
+    });
+
+    // Create formatted response
+    const formattedPoll = {
+      _id: pollObj._id,
+      question: pollObj.question,
+      user: pollObj.user,
+      startTime: pollObj.startTime,
+      endTime: pollObj.endTime,
+      isActive: pollObj.isActive,
+      options: formattedOptions,
+      totalVotes: {
+        count: allVoters.length,
+        voters: allVoters,
+      },
+      hasEnded: new Date() > new Date(pollObj.endTime),
+      hasVoted: formattedOptions.some((option) => option.hasVoted),
+    };
+
+    let action = "added";
+    if (currentVotedOption === optionId) {
+      action = "removed";
+    } else if (currentVotedOption) {
+      action = "changed";
+    }
+
     return res.status(200).json({
-      message: currentVotedOption
-        ? "Vote changed successfully."
-        : "Vote recorded successfully.",
-      poll,
-      action: currentVotedOption ? "changed" : "added",
+      message:
+        action === "removed"
+          ? "Vote removed successfully."
+          : action === "changed"
+          ? "Vote changed successfully."
+          : "Vote recorded successfully.",
+      poll: formattedPoll,
+      action,
     });
   } catch (error) {
     console.error("Vote error:", error);
