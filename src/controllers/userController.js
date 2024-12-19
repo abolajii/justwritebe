@@ -575,7 +575,240 @@ exports.updateUser = async (req, res) => {
 
 exports.getUserActivityInfo = async (req, res) => {
   try {
-    const userId = req.params.userId || req.user.id;
+    const userId = req.params.userId;
+    const tag = req.query.tag;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    let query = {};
+    let activity = null;
+
+    switch (tag) {
+      case "posts":
+        query = { user: userId };
+        break;
+      case "likes":
+        query = { likes: userId };
+        break;
+      case "media":
+        query = { user: userId, imageUrl: { $ne: null } };
+        break;
+      case "bookmarks":
+        query = { bookmarks: userId };
+        break;
+      case "shared":
+        query = { shares: userId };
+        break;
+      case "replies":
+        activity = await Comment.find({ user: userId })
+          .populate("post", "content user createdAt")
+          .populate("user", "username name profilePic isVerified")
+          .sort({ createdAt: -1 });
+        break;
+      default:
+        return res.status(400).json({
+          message:
+            "Invalid tag. Valid tags are: posts, likes, media, replies, bookmarks, shared",
+        });
+    }
+
+    if (tag !== "replies") {
+      activity = await Post.find(query)
+        .sort({ createdAt: -1 })
+        .populate({
+          path: "pollId",
+          populate: {
+            path: "options.votes.user",
+            model: "User",
+            select: "username name profilePic",
+          },
+        })
+        .populate({
+          path: "user",
+          select: "username name profilePic isVerified",
+        })
+        .populate({
+          path: "originalPost",
+          populate: [
+            {
+              path: "user",
+              model: "User",
+              select: "username name profilePic isVerified",
+            },
+            {
+              path: "pollId",
+              model: "Poll",
+              populate: {
+                path: "options.votes.user",
+                model: "User",
+                select: "username name profilePic",
+              },
+            },
+          ],
+        })
+        .populate({
+          path: "comments",
+          populate: {
+            path: "user",
+            model: "User",
+            select: "username name profilePic isVerified",
+          },
+        })
+        .populate({
+          path: "mentions",
+          select: "username name profilePic isVerified",
+        });
+    }
+
+    // Format the response
+    const formattedActivity = activity.map((item) => {
+      const itemObj = item.toObject();
+
+      // If it's a post with a poll, format the poll data
+      if (itemObj.pollId) {
+        const uniqueVoters = new Map();
+
+        itemObj.pollId.options.forEach((option) => {
+          option.votes.forEach((vote) => {
+            if (vote.user) {
+              uniqueVoters.set(vote.user._id.toString(), {
+                _id: vote.user._id,
+                username: vote.user.username,
+                name: vote.user.name,
+                profilePic: vote.user.profilePic,
+              });
+            }
+          });
+        });
+
+        const allVoters = Array.from(uniqueVoters.values());
+
+        // Format poll options
+        itemObj.pollId.options = itemObj.pollId.options.map((option) => {
+          const voteCount = option.votes.length;
+          const hasVoted = option.votes.some(
+            (vote) => vote.user && vote.user._id.toString() === userId
+          );
+
+          return {
+            _id: option._id,
+            optionText: option.optionText,
+            voteCount,
+            hasVoted,
+            votePercentage:
+              allVoters.length > 0
+                ? ((voteCount / allVoters.length) * 100).toFixed(1)
+                : "0",
+            votes: option.votes
+              .filter((vote) => vote.user)
+              .map((vote) => ({
+                _id: vote._id,
+                user: {
+                  _id: vote.user._id,
+                  username: vote.user.username,
+                  name: vote.user.name,
+                  profilePic: vote.user.profilePic,
+                },
+              })),
+          };
+        });
+
+        // Add poll metadata
+        itemObj.pollId.totalVotes = {
+          count: allVoters.length,
+          voters: allVoters,
+        };
+        itemObj.pollId.hasEnded = new Date() > new Date(itemObj.pollId.endTime);
+        itemObj.pollId.hasVoted = itemObj.pollId.options.some(
+          (option) => option.hasVoted
+        );
+      }
+
+      // If it's a post, add bookmark status
+      if (tag !== "replies") {
+        itemObj.isBookmarked = item.bookmarks.includes(userId);
+      }
+
+      // If there's an original post with a poll, format that poll data too
+      if (itemObj.originalPost?.pollId) {
+        const uniqueVoters = new Map();
+
+        itemObj.originalPost.pollId.options.forEach((option) => {
+          option.votes.forEach((vote) => {
+            if (vote.user) {
+              uniqueVoters.set(vote.user._id.toString(), {
+                _id: vote.user._id,
+                username: vote.user.username,
+                name: vote.user.name,
+                profilePic: vote.user.profilePic,
+              });
+            }
+          });
+        });
+
+        const allVoters = Array.from(uniqueVoters.values());
+
+        itemObj.originalPost.pollId.options =
+          itemObj.originalPost.pollId.options.map((option) => {
+            const voteCount = option.votes.length;
+            const hasVoted = option.votes.some(
+              (vote) => vote.user && vote.user._id.toString() === userId
+            );
+
+            return {
+              _id: option._id,
+              optionText: option.optionText,
+              voteCount,
+              hasVoted,
+              votePercentage:
+                allVoters.length > 0
+                  ? ((voteCount / allVoters.length) * 100).toFixed(1)
+                  : "0",
+              votes: option.votes
+                .filter((vote) => vote.user)
+                .map((vote) => ({
+                  _id: vote._id,
+                  user: {
+                    _id: vote.user._id,
+                    username: vote.user.username,
+                    name: vote.user.name,
+                    profilePic: vote.user.profilePic,
+                  },
+                })),
+            };
+          });
+
+        itemObj.originalPost.pollId.totalVotes = {
+          count: allVoters.length,
+          voters: allVoters,
+        };
+        itemObj.originalPost.pollId.hasEnded =
+          new Date() > new Date(itemObj.originalPost.pollId.endTime);
+        itemObj.originalPost.pollId.hasVoted =
+          itemObj.originalPost.pollId.options.some((option) => option.hasVoted);
+      }
+
+      return itemObj;
+    });
+
+    return res.status(200).json({
+      message: `${tag} activity retrieved successfully`,
+      activity: formattedActivity,
+    });
+  } catch (error) {
+    console.error("Error retrieving user activity info:", error);
+    return res.status(500).json({
+      message: "Error retrieving user activity info",
+      error: error.message,
+    });
+  }
+};
+
+exports.getUserInfo = async (req, res) => {
+  try {
+    const userId = req.user.id;
     const tag = req.query.tag;
 
     if (!userId) {

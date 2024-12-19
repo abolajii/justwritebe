@@ -19,6 +19,7 @@ const {
   createFolder,
   addPostToFolder,
   getFolderContents,
+  getUserInfo,
 } = require("../controllers/userController");
 
 const { verifyToken } = require("../middleware");
@@ -34,6 +35,8 @@ router.post("/folder/bookmark", [verifyToken], addPostToFolder);
 router.get("/bookmarks", [verifyToken], getUserBookmarks);
 
 router.get("/activity/:userId", [verifyToken], getUserActivityInfo);
+
+router.get("/activity", [verifyToken], getUserInfo);
 
 router.get("/search", [verifyToken], globalSearch);
 
