@@ -25,7 +25,7 @@ exports.getUserProfileAndPosts = async (userId) => {
   try {
     // Fetch user details including bio and location
     const user = await User.findOne({ username: userId }).select(
-      "username name email profilePic bio location followers following isVerified link"
+      "username name email profilePic bio location followers following isVerified link backdrop"
     ); // Including bio and location
 
     if (!user) {
@@ -34,7 +34,7 @@ exports.getUserProfileAndPosts = async (userId) => {
 
     // Fetch the posts of the user
     const posts = await Post.find({ user: user._id })
-      .populate("user", "username name profilePic isVerified") // Populate the 'user' field to get user info
+      .populate("user", "username name profilePic isVerified backdrop") // Populate the 'user' field to get user info
       // .populate("comments") // Optional: populate comments if needed
       .sort({ createdAt: -1 }); // Sort posts by creation time (newest first)
 

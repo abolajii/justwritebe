@@ -232,6 +232,7 @@ exports.login = async (req, res) => {
         isVerified: user.isVerified,
         following: user.following.length,
         followers: user.followers.length,
+        backdrop: user.backdrop,
         lastLogin: user.lastLogin,
         postCount, // Add post count here
         stories: Object.values(groupedStories), // Return only the grouped stories as an array
