@@ -1123,3 +1123,152 @@ exports.getUserBookmarks = async (req, res) => {
     });
   }
 };
+
+exports.getFolderContents = async (req, res) => {
+  const userId = req.user.id;
+  const folderId = req.params.fid;
+
+  try {
+    // Verify folder exists and belongs to user
+    const folder = await Folder.findOne({
+      _id: folderId,
+      user: userId,
+    }).lean();
+
+    if (!folder) {
+      return res.status(404).json({
+        success: false,
+        message: "Folder not found",
+      });
+    }
+
+    // Get bookmarks in the folder
+    const bookmarks = await Bookmark.find({ folder: folderId, user: userId })
+      .populate({
+        path: "post",
+        select:
+          "content imageUrl user postType pollId originalPost likes comments shares createdAt",
+        populate: [
+          {
+            path: "user",
+            select: "username name profilePic isVerified",
+          },
+          {
+            path: "pollId",
+            populate: {
+              path: "options.votes.user",
+              model: "User",
+              select: "username name profilePic",
+            },
+          },
+          {
+            path: "originalPost",
+            populate: [
+              {
+                path: "user",
+                model: "User",
+                select: "username name profilePic isVerified",
+              },
+              {
+                path: "pollId",
+                populate: {
+                  path: "options.votes.user",
+                  model: "User",
+                  select: "username name profilePic",
+                },
+              },
+            ],
+          },
+        ],
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Process bookmarks (same logic as before for engagement metrics and polls)
+    const processedBookmarks = bookmarks.map((bookmark) => {
+      if (bookmark.post) {
+        // Add engagement metrics
+        bookmark.post.engagementCounts = {
+          likes: bookmark.post.likes?.length || 0,
+          comments: bookmark.post.comments?.length || 0,
+          shares: bookmark.post.shares?.length || 0,
+        };
+
+        bookmark.post.isLiked = bookmark.post.likes?.includes(userId) || false;
+
+        delete bookmark.post.likes;
+        delete bookmark.post.comments;
+        delete bookmark.post.shares;
+
+        if (bookmark.post?.pollId) {
+          const pollData = bookmark.post.pollId;
+          const uniqueVoters = new Map();
+
+          pollData.options.forEach((option) => {
+            option.votes.forEach((vote) => {
+              if (vote.user) {
+                uniqueVoters.set(vote.user._id.toString(), {
+                  _id: vote.user._id,
+                  username: vote.user.username,
+                  name: vote.user.name,
+                  profilePic: vote.user.profilePic,
+                });
+              }
+            });
+          });
+
+          const allVoters = Array.from(uniqueVoters.values());
+
+          bookmark.post.pollId.options = pollData.options.map((option) => ({
+            _id: option._id,
+            optionText: option.optionText,
+            voteCount: option.votes.length,
+            hasVoted: option.votes.some(
+              (vote) => vote.user && vote.user._id.toString() === userId
+            ),
+            votePercentage:
+              allVoters.length > 0
+                ? ((option.votes.length / allVoters.length) * 100).toFixed(1)
+                : "0",
+            votes: option.votes
+              .filter((vote) => vote.user)
+              .map((vote) => ({
+                _id: vote._id,
+                user: {
+                  _id: vote.user._id,
+                  username: vote.user.username,
+                  name: vote.user.name,
+                  profilePic: vote.user.profilePic,
+                },
+              })),
+          }));
+
+          bookmark.post.pollId.totalVotes = {
+            count: allVoters.length,
+            voters: allVoters,
+          };
+          bookmark.post.pollId.hasEnded =
+            new Date() > new Date(pollData.endTime);
+          bookmark.post.pollId.hasVoted = bookmark.post.pollId.options.some(
+            (option) => option.hasVoted
+          );
+        }
+      }
+      return bookmark;
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        folder,
+        bookmarks: processedBookmarks,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching folder contents:", error);
+    return res.status(500).json({
+      message: "Error fetching folder contents",
+      error: error.message,
+    });
+  }
+};

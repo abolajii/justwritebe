@@ -18,6 +18,7 @@ const {
   getUserBookmarks,
   createFolder,
   addPostToFolder,
+  getFolderContents,
 } = require("../controllers/userController");
 
 const { verifyToken } = require("../middleware");
@@ -57,5 +58,7 @@ router.get("/mutual", [verifyToken], getMutualFollowers);
 router.put("/me", [verifyToken], updateUser);
 
 router.get("/notification/:id/read", [verifyToken], readNotification);
+
+router.get("/folder/:fid", [verifyToken], getFolderContents);
 
 module.exports = router;
