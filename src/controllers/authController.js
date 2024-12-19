@@ -69,7 +69,7 @@ exports.me = async (req, res) => {
         following: user.following.length,
         followers: user.followers.length,
         lastLogin: user.lastLogin,
-        back: user.backdrop,
+        backdrop: user.backdrop,
         postCount, // Include post count
         stories: Object.values(groupedStories), // Grouped stories
       },
