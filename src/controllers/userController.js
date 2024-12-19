@@ -575,7 +575,7 @@ exports.updateUser = async (req, res) => {
 
 exports.getUserActivityInfo = async (req, res) => {
   try {
-    const userId = req.user.id || req.params.userId;
+    const userId = req.params.userId || req.user.id;
     const tag = req.query.tag;
 
     if (!userId) {
