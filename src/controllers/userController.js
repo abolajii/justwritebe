@@ -520,6 +520,8 @@ exports.updateUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    const username = user.username;
+
     // Update fields
     user.name = name || user.name;
     user.bio = bio || user.bio;
