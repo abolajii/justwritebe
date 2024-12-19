@@ -28,7 +28,7 @@ router.get("/users", [verifyToken], getAllUsers);
 
 router.post("/folder/create", [verifyToken], createFolder);
 
-router.post("/bookmark/folder", [verifyToken], addPostToFolder);
+router.post("/folder/bookmark", [verifyToken], addPostToFolder);
 
 router.get("/bookmarks", [verifyToken], getUserBookmarks);
 
