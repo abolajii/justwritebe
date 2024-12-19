@@ -16,6 +16,7 @@ const UserSchema = new mongoose.Schema(
     bio: { type: String, default: "" }, // Bio of the user
     location: { type: String, default: "" },
     isVerified: { type: Boolean, default: false },
+    backdrop: { type: String }, // Optional profile picture URL
     profilePic: { type: String }, // Optional profile picture URL
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Users following this user
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Users this user is following

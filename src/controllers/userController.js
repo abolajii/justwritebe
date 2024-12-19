@@ -496,7 +496,8 @@ exports.updateUser = async (req, res) => {
 
   const userId = req.user.id;
 
-  const file = req.files?.file;
+  const file = req.files?.profilePic;
+  const backdrop = req.files?.backdrop;
 
   // Validate request body
   if (!userId) {
@@ -519,13 +520,25 @@ exports.updateUser = async (req, res) => {
     if (file) {
       // Upload the profile picture to ImageKit
       const uploadResponse = await imagekit.upload({
-        file: profilePic.data.toString("base64"), // base64 encoded string
+        file: file.data.toString("base64"), // base64 encoded string
         fileName: `${username}_${Date.now()}`, // A unique file name
         folder: `/profile_pics/${username}`, // Optional folder path in ImageKit
       });
 
       // Set the profile picture URL from ImageKit's response
       user.profilePic = uploadResponse.url;
+    }
+
+    if (backdrop) {
+      // Upload the profile picture to ImageKit
+      const uploadResponse = await imagekit.upload({
+        file: backdrop.data.toString("base64"), // base64 encoded string
+        fileName: `${username}_${Date.now()}`, // A unique file name
+        folder: `/backdrop/${username}`, // Optional folder path in ImageKit
+      });
+
+      // Set the profile picture URL from ImageKit's response
+      user.backdrop = uploadResponse.url;
     }
     // Save the updated user
     await user.save();
@@ -539,6 +552,7 @@ exports.updateUser = async (req, res) => {
         bio: user.bio,
         profilePic: user.profilePic,
         link: user.link,
+        backdrop: user.backdrop,
         location: user.location,
       },
     });
