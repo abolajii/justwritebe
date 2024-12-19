@@ -1242,7 +1242,7 @@ exports.deletePost = async (req, res) => {
 };
 
 // Edit a post
-exports.editPost = async (req, res) => {
+exports.updatePost = async (req, res) => {
   const userId = req.user.id;
   const { postId } = req.params;
   const { content } = req.body;
