@@ -11,6 +11,10 @@ const FolderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    category: {
+      type: String,
+      required: true,
+    },
     bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
   },
   { timestamps: true }

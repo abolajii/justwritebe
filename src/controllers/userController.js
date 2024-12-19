@@ -798,7 +798,7 @@ exports.getUserActivityInfo = async (req, res) => {
 
 exports.createFolder = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, category } = req.body;
     const userId = req.user.id;
 
     if (!name) {
@@ -811,6 +811,7 @@ exports.createFolder = async (req, res) => {
     const folder = await Folder.create({
       name,
       user: userId,
+      category,
       bookmarks: [],
     });
 
