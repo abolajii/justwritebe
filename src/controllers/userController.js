@@ -1092,31 +1092,16 @@ exports.getUserBookmarks = async (req, res) => {
       }
     });
 
-    // Convert folderMap back to array and group by category
-    const foldersWithBookmarks = Array.from(folderMap.values());
-
-    // Group folders by category
-    const categorizedFolders = foldersWithBookmarks.reduce((acc, folder) => {
-      const category = folder.category || "Uncategorized";
-      if (!acc[category]) {
-        acc[category] = [];
-      }
-      acc[category].push(folder);
-      return acc;
-    }, {});
-
     // Sort folders within each category by createdAt
-    Object.keys(categorizedFolders).forEach((category) => {
-      categorizedFolders[category].sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-      );
-    });
+    const foldersWithBookmarks = Array.from(folderMap.values()).sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
 
     res.status(200).json({
       success: true,
       data: {
-        categorizedFolders,
-        unfolderedBookmarks: bookmarksWithoutFolder,
+        folders: foldersWithBookmarks,
+        bookmarks: bookmarksWithoutFolder,
       },
     });
   } catch (error) {
