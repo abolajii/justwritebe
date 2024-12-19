@@ -954,7 +954,7 @@ exports.getUserBookmarks = async (req, res) => {
     }
 
     const folders = await Folder.find(folderQuery)
-      .select("name createdAt")
+      .select("name createdAt category") // Added category to selection
       .lean();
 
     // Then get bookmarks
@@ -1007,7 +1007,7 @@ exports.getUserBookmarks = async (req, res) => {
       })
       .populate({
         path: "folder",
-        select: "name category",
+        select: "name category", // Added category to folder population
       })
       .sort({ createdAt: -1 })
       .lean();
@@ -1092,15 +1092,30 @@ exports.getUserBookmarks = async (req, res) => {
       }
     });
 
-    // Convert folderMap back to array
-    const foldersWithBookmarks = Array.from(folderMap.values()).sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-    );
+    // Convert folderMap back to array and group by category
+    const foldersWithBookmarks = Array.from(folderMap.values());
+
+    // Group folders by category
+    const categorizedFolders = foldersWithBookmarks.reduce((acc, folder) => {
+      const category = folder.category || "Uncategorized";
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(folder);
+      return acc;
+    }, {});
+
+    // Sort folders within each category by createdAt
+    Object.keys(categorizedFolders).forEach((category) => {
+      categorizedFolders[category].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+    });
 
     res.status(200).json({
       success: true,
       data: {
-        folders: foldersWithBookmarks,
+        categorizedFolders,
         unfolderedBookmarks: bookmarksWithoutFolder,
       },
     });
