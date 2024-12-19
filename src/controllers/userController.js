@@ -8,6 +8,14 @@ const { createNotification, getUserProfileAndPosts } = require("../utils");
 const Notification = require("../models/Notification");
 const Story = require("../models/Story");
 
+const ImageKit = require("imagekit");
+
+const imagekit = new ImageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+  urlEndpoint: `https://ik.imagekit.io/${process.env.IMAGEKIT_ID}`,
+});
+
 exports.getCurrentUser = async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
