@@ -25,7 +25,12 @@ const PostSchema = new mongoose.Schema(
     }, // For quoted and shared posts, this is the original post reference
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Users who liked the post
     views: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Users who viewed the post
-    bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Users who bookmarked the post
+    bookmarks: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Bookmark", // Changed from "User" to "Bookmark"
+      },
+    ],
     shares: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Users who shared the post
     mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Users who shared the post
     quotedPost: { type: mongoose.Schema.Types.ObjectId, ref: "Post" }, // Reference to a quoted post (if any)

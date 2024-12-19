@@ -15,6 +15,9 @@ const {
   getFollowersStories,
   updateUser,
   getUserActivityInfo,
+  getUserBookmarks,
+  createFolder,
+  addPostToFolder,
 } = require("../controllers/userController");
 
 const { verifyToken } = require("../middleware");
@@ -22,6 +25,12 @@ const { verifyToken } = require("../middleware");
 const router = express.Router();
 
 router.get("/users", [verifyToken], getAllUsers);
+
+router.post("/folder/create", [verifyToken], createFolder);
+
+router.post("/bookmark/folder", [verifyToken], addPostToFolder);
+
+router.get("/bookmarks", [verifyToken], getUserBookmarks);
 
 router.get("/activity/:userId", [verifyToken], getUserActivityInfo);
 

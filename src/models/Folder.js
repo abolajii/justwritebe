@@ -1,4 +1,3 @@
-// models/TrendingWord.js
 const mongoose = require("mongoose");
 
 const FolderSchema = new mongoose.Schema(
@@ -7,7 +6,12 @@ const FolderSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }], // Users who bookmarked the post
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
   },
   { timestamps: true }
 );

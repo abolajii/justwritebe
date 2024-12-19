@@ -8,6 +8,7 @@ const TrendingWord = require("../models/TrendingWord");
 const { createNotification } = require("../utils");
 
 const ImageKit = require("imagekit");
+const Bookmark = require("../models/Bookmark");
 
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
@@ -523,7 +524,6 @@ exports.shareComment = async (req, res) => {
 // Get user feeds
 exports.getFeeds = async (req, res) => {
   const userId = req.user.id;
-
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 10;
   const skip = (page - 1) * pageSize;
@@ -542,6 +542,7 @@ exports.getFeeds = async (req, res) => {
 
     const totalPosts = await Post.countDocuments(baseQuery);
 
+    // First get all posts
     const posts = await Post.find(baseQuery)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -623,9 +624,31 @@ exports.getFeeds = async (req, res) => {
         select: "username name profilePic isVerified",
       });
 
+    // Get all bookmarks for this user for the returned posts
+    const bookmarks = await Bookmark.find({
+      user: userId,
+      post: { $in: posts.map((post) => post._id) },
+    }).select("post folder");
+
+    // Create a Set of bookmarked post IDs for efficient lookup
+    const bookmarkedPostIds = new Set(bookmarks.map((b) => b.post.toString()));
+
     const processedPosts = posts.map((post) => {
       const postObj = post.toObject();
-      postObj.isBookmarked = post.bookmarks.includes(userId);
+
+      // Check if post is bookmarked using the Set
+      postObj.isBookmarked = bookmarkedPostIds.has(post._id.toString());
+
+      // Optionally, add bookmark details if needed
+      const postBookmarks = bookmarks.filter(
+        (b) => b.post.toString() === post._id.toString()
+      );
+      if (postBookmarks.length > 0) {
+        postObj.bookmarkDetails = postBookmarks.map((b) => ({
+          folderId: b.folder,
+          bookmarkId: b._id,
+        }));
+      }
 
       // Process poll data if exists
       if (post.pollId) {
@@ -665,9 +688,8 @@ exports.getFeeds = async (req, res) => {
               allVoters.length > 0
                 ? ((voteCount / allVoters.length) * 100).toFixed(1)
                 : "0",
-            // Include votes array with user details
             votes: optionObj.votes
-              .filter((vote) => vote.user) // Filter out any votes without user data
+              .filter((vote) => vote.user)
               .map((vote) => ({
                 _id: vote._id,
                 user: {
@@ -680,7 +702,6 @@ exports.getFeeds = async (req, res) => {
           };
         });
 
-        // Add poll metadata
         postObj.pollId.totalVotes = {
           count: allVoters.length,
           voters: allVoters,
@@ -773,7 +794,7 @@ exports.getTrendingWords = async (req, res) => {
 };
 
 exports.handleBookMark = async (req, res) => {
-  const userId = req.user.id; // Assuming user is authenticated and user ID is in req.user._id
+  const userId = req.user.id; // Assuming user authentication middleware adds this
   const { postId } = req.params;
 
   try {
@@ -784,21 +805,37 @@ exports.handleBookMark = async (req, res) => {
       return res.status(404).json({ message: "Post not found" });
     }
 
-    // Check if the post is already bookmarked by the user
-    const isBookmarked = post.bookmarks.includes(userId);
+    // Check if the user has already bookmarked this post
+    const existingBookmark = await Bookmark.findOne({
+      user: userId,
+      post: postId,
+    });
 
-    if (isBookmarked) {
-      // Unbookmark: remove user ID from the bookmarks array
-      post.bookmarks.pull(userId);
+    if (existingBookmark) {
+      // If bookmark exists, delete it
+      await Bookmark.findByIdAndDelete(existingBookmark._id);
+
+      // Remove bookmark reference from post
+      post.bookmarks.pull(existingBookmark._id);
       await post.save();
+
       return res
         .status(200)
         .json({ message: "Post unbookmarked successfully" });
     } else {
-      // Bookmark: add user ID to the bookmarks array
-      post.bookmarks.push(userId);
+      // If bookmark does not exist, create a new one
+      const newBookmark = await Bookmark.create({
+        user: userId,
+        post: postId,
+      });
+
+      // Add the new bookmark to the post's bookmarks array
+      post.bookmarks.push(newBookmark._id);
       await post.save();
-      return res.status(200).json({ message: "Post bookmarked successfully" });
+
+      return res
+        .status(200)
+        .json({ message: "Post bookmarked successfully", data: newBookmark });
     }
   } catch (error) {
     console.error("Error bookmarking/unbookmarking post:", error);

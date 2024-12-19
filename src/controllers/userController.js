@@ -2,10 +2,11 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Post = require("../models/Post");
 const Comment = require("../models/Comment");
+const Folder = require("../models/Folder");
+const Bookmark = require("../models/Bookmark");
 const { createNotification, getUserProfileAndPosts } = require("../utils");
 const Notification = require("../models/Notification");
 const Story = require("../models/Story");
-const bcrypt = require("bcryptjs"); // To hash passwords
 
 exports.getCurrentUser = async (req, res) => {
   try {
@@ -792,5 +793,204 @@ exports.getUserActivityInfo = async (req, res) => {
       message: "Error retrieving user activity info",
       error: error.message,
     });
+  }
+};
+
+exports.createFolder = async (req, res) => {
+  try {
+    const { name } = req.body;
+    const userId = req.user.id;
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "Folder name is required",
+      });
+    }
+
+    const folder = await Folder.create({
+      name,
+      user: userId,
+      bookmarks: [],
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: folder,
+    });
+  } catch (error) {
+    console.error("Error creating folder:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create folder",
+    });
+  }
+};
+exports.addPostToFolder = async (req, res) => {
+  try {
+    const { folderId, postId } = req.body;
+    const userId = req.user.id;
+
+    if (!folderId || !postId) {
+      return res.status(400).json({
+        success: false,
+        message: "Folder ID and Post ID are required",
+      });
+    }
+
+    // Check if folder exists and belongs to the user
+    const folder = await Folder.findOne({ _id: folderId, user: userId });
+    if (!folder) {
+      return res.status(404).json({
+        success: false,
+        message: "Folder not found or unauthorized",
+      });
+    }
+
+    // Check if post exists
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    // Check if the post is already bookmarked in this folder
+    const existingBookmark = await Bookmark.findOne({
+      user: userId,
+      post: postId,
+      folder: folderId,
+    });
+
+    if (existingBookmark) {
+      return res.status(400).json({
+        success: false,
+        message: "Post already added to this folder",
+      });
+    }
+
+    // Create bookmark and update references
+    const session = await Folder.startSession();
+    session.startTransaction();
+    try {
+      const bookmark = await Bookmark.create(
+        [{ user: userId, post: postId, folder: folderId }],
+        { session }
+      );
+
+      folder.bookmarks.push(postId);
+      await folder.save({ session });
+
+      if (!post.bookmarks.includes(userId)) {
+        post.bookmarks.push(userId);
+        await post.save({ session });
+      }
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(200).json({
+        success: true,
+        data: bookmark,
+      });
+    } catch (transactionError) {
+      await session.abortTransaction();
+      session.endSession();
+      throw transactionError;
+    }
+  } catch (error) {
+    console.error("Error adding post to folder:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to add post to folder",
+    });
+  }
+};
+
+// exports.getUserBookmarks = async (req, res) => {
+//   const userId = req.user.id; // Assuming user authentication middleware adds this
+
+//   try {
+//     // Fetch bookmarks for the authenticated user
+//     const bookmarks = await Bookmark.find({ user: userId })
+//       .populate({
+//         path: "post",
+//         select: "content imageUrl user", // Select desired post fields
+//         populate: {
+//           path: "user",
+//           select: "name email", // Select desired user fields
+//         },
+//       })
+//       .populate({
+//         path: "folder",
+//         select: "name", // Select desired folder fields
+//       });
+
+//     if (!bookmarks || bookmarks.length === 0) {
+//       return res.status(404).json({ message: "No bookmarks found" });
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       data: bookmarks,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching bookmarks:", error);
+//     return res.status(500).json({ message: "An error occurred", error });
+//   }
+// };
+
+exports.getUserBookmarks = async (req, res) => {
+  const userId = req.user.id; // Assuming user authentication middleware adds this
+  const { query, folder } = req.query;
+
+  try {
+    // Build the search criteria
+    const searchCriteria = { user: userId };
+
+    // Add search by query (for post content, notes, or user details)
+    if (query) {
+      searchCriteria.$or = [
+        { "post.content": { $regex: query, $options: "i" } }, // Search in post content
+        { notes: { $regex: query, $options: "i" } }, // Search in notes
+        { "post.user.name": { $regex: query, $options: "i" } }, // Search in user's name
+        { "post.user.username": { $regex: query, $options: "i" } }, // Search in user's username
+      ];
+    }
+
+    // Filter by folder
+    if (folder) {
+      searchCriteria.folder = folder;
+    }
+
+    // Perform the search
+    const bookmarks = await Bookmark.find(searchCriteria)
+      .populate({
+        path: "post",
+        select: "content imageUrl user", // Include relevant post fields
+        populate: {
+          path: "user",
+          select: "name username email", // Include user details
+        },
+      })
+      .populate({
+        path: "folder",
+        select: "name", // Include folder name
+      });
+
+    if (!bookmarks || bookmarks.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No bookmarks found matching your criteria" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: bookmarks,
+    });
+  } catch (error) {
+    console.error("Error searching bookmarks:", error);
+    return res.status(500).json({ message: "An error occurred", error });
   }
 };
