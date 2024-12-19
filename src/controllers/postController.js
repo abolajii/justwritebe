@@ -9,6 +9,7 @@ const { createNotification } = require("../utils");
 
 const ImageKit = require("imagekit");
 const Bookmark = require("../models/Bookmark");
+const Folder = require("../models/Folder");
 
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
@@ -1197,5 +1198,190 @@ exports.votePoll = async (req, res) => {
   } catch (error) {
     console.error("Vote error:", error);
     res.status(500).json({ message: "Failed to process vote." });
+  }
+};
+// Delete a post
+exports.deletePost = async (req, res) => {
+  const userId = req.user.id;
+  const { postId } = req.params;
+
+  try {
+    // Find and verify the post belongs to the user
+    const post = await Post.findOne({ _id: postId, user: userId });
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found or you don't have permission to delete it",
+      });
+    }
+
+    // Delete all bookmarks referencing this post
+    await Bookmark.deleteMany({ post: postId });
+
+    // Delete the post
+    await Post.deleteOne({ _id: postId });
+
+    // If it's a poll post, delete associated poll data
+    if (post.pollId) {
+      await Poll.deleteOne({ _id: post.pollId });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Post deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error deleting post",
+      error: error.message,
+    });
+  }
+};
+
+// Edit a post
+exports.editPost = async (req, res) => {
+  const userId = req.user.id;
+  const { postId } = req.params;
+  const { content } = req.body;
+
+  try {
+    // Validate content
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Content cannot be empty",
+      });
+    }
+
+    // Find and verify the post belongs to the user
+    const post = await Post.findOne({ _id: postId, user: userId });
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found or you don't have permission to edit it",
+      });
+    }
+
+    // Check if post is a repost/share
+    if (post.postType === "share") {
+      return res.status(400).json({
+        success: false,
+        message: "Shared posts cannot be edited",
+      });
+    }
+
+    // Update the post
+    const updatedPost = await Post.findByIdAndUpdate(
+      postId,
+      {
+        content: content,
+        isEdited: true,
+        lastEditedAt: new Date(),
+      },
+      { new: true }
+    ).populate({
+      path: "user",
+      select: "username name profilePic isVerified",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Post updated successfully",
+      data: updatedPost,
+    });
+  } catch (error) {
+    console.error("Error updating post:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error updating post",
+      error: error.message,
+    });
+  }
+};
+
+// Remove bookmark from folder
+exports.removeFromFolder = async (req, res) => {
+  const userId = req.user.id;
+  const { folderId, bookmarkId } = req.params;
+
+  try {
+    // Find and verify the folder belongs to the user
+    const folder = await Folder.findOne({
+      _id: folderId,
+      user: userId,
+    });
+
+    if (!folder) {
+      return res.status(404).json({
+        success: false,
+        message: "Folder not found or you don't have permission to modify it",
+      });
+    }
+
+    // Verify bookmark exists in the folder
+    if (!folder.bookmarks.includes(bookmarkId)) {
+      return res.status(404).json({
+        success: false,
+        message: "Bookmark not found in this folder",
+      });
+    }
+
+    // Remove bookmark from folder's bookmarks array
+    const updatedFolder = await Folder.findByIdAndUpdate(
+      folderId,
+      {
+        $pull: { bookmarks: bookmarkId },
+      },
+      { new: true }
+    );
+
+    // Update the bookmark to remove folder reference
+    await Bookmark.findByIdAndUpdate(bookmarkId, { $unset: { folder: 1 } });
+
+    res.status(200).json({
+      success: true,
+      message: "Bookmark removed from folder successfully",
+      data: {
+        folder: updatedFolder,
+      },
+    });
+  } catch (error) {
+    console.error("Error removing bookmark from folder:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error removing bookmark from folder",
+      error: error.message,
+    });
+  }
+};
+
+exports.deleteFolder = async (req, res) => {
+  try {
+    const { folderId } = req.params;
+    await Folder.findByIdAndDelete(folderId);
+    res.status(200).json({ message: "Folder deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Error deleting folder" });
+  }
+};
+
+exports.updateFolder = async (req, res) => {
+  try {
+    const { folderId } = req.params;
+    const { name, category } = req.body; // Example update fields
+    const updatedFolder = await Folder.findByIdAndUpdate(
+      folderId,
+      { name, category },
+      { new: true }
+    );
+    res
+      .status(200)
+      .json({ message: "Folder deleted successfully", updatedFolder });
+  } catch (error) {
+    res.status(500).json({ error: "Error updating folder" });
   }
 };
