@@ -947,17 +947,15 @@ exports.getUserBookmarks = async (req, res) => {
   const { query } = req.query;
 
   try {
-    // First get all folders
     let folderQuery = { user: userId };
     if (query) {
       folderQuery.name = { $regex: query, $options: "i" };
     }
 
     const folders = await Folder.find(folderQuery)
-      .select("name createdAt category") // Added category to selection
+      .select("name createdAt category")
       .lean();
 
-    // Then get bookmarks
     const bookmarkQuery = { user: userId };
     if (query) {
       bookmarkQuery.$or = [
@@ -971,7 +969,8 @@ exports.getUserBookmarks = async (req, res) => {
     const bookmarks = await Bookmark.find(bookmarkQuery)
       .populate({
         path: "post",
-        select: "content imageUrl user postType pollId originalPost",
+        select:
+          "content imageUrl user postType pollId originalPost likes comments shares createdAt", // Added likes, comments, shares
         populate: [
           {
             path: "user",
@@ -1007,12 +1006,11 @@ exports.getUserBookmarks = async (req, res) => {
       })
       .populate({
         path: "folder",
-        select: "name category", // Added category to folder population
+        select: "name category",
       })
       .sort({ createdAt: -1 })
       .lean();
 
-    // Process bookmarks to separate foldered and unfoldered
     const bookmarksWithoutFolder = [];
     const folderMap = new Map(
       folders.map((folder) => [
@@ -1024,62 +1022,76 @@ exports.getUserBookmarks = async (req, res) => {
       ])
     );
 
-    // Process polls in bookmarks
     bookmarks.forEach((bookmark) => {
-      if (bookmark.post?.pollId) {
-        const post = bookmark.post;
-        const pollData = post.pollId;
-
-        // Get unique voters
-        const uniqueVoters = new Map();
-        pollData.options.forEach((option) => {
-          option.votes.forEach((vote) => {
-            if (vote.user) {
-              uniqueVoters.set(vote.user._id.toString(), {
-                _id: vote.user._id,
-                username: vote.user.username,
-                name: vote.user.name,
-                profilePic: vote.user.profilePic,
-              });
-            }
-          });
-        });
-
-        const allVoters = Array.from(uniqueVoters.values());
-
-        // Process poll options
-        post.pollId.options = pollData.options.map((option) => ({
-          _id: option._id,
-          optionText: option.optionText,
-          voteCount: option.votes.length,
-          hasVoted: option.votes.some(
-            (vote) => vote.user && vote.user._id.toString() === userId
-          ),
-          votePercentage:
-            allVoters.length > 0
-              ? ((option.votes.length / allVoters.length) * 100).toFixed(1)
-              : "0",
-          votes: option.votes
-            .filter((vote) => vote.user)
-            .map((vote) => ({
-              _id: vote._id,
-              user: {
-                _id: vote.user._id,
-                username: vote.user.username,
-                name: vote.user.name,
-                profilePic: vote.user.profilePic,
-              },
-            })),
-        }));
-
-        post.pollId.totalVotes = {
-          count: allVoters.length,
-          voters: allVoters,
+      if (bookmark.post) {
+        // Add engagement metrics
+        bookmark.post.engagementCounts = {
+          likes: bookmark.post.likes?.length || 0,
+          comments: bookmark.post.comments?.length || 0,
+          shares: bookmark.post.shares?.length || 0,
         };
-        post.pollId.hasEnded = new Date() > new Date(pollData.endTime);
-        post.pollId.hasVoted = post.pollId.options.some(
-          (option) => option.hasVoted
-        );
+
+        // Check if user has liked the post
+        bookmark.post.isLiked = bookmark.post.likes?.includes(userId) || false;
+
+        // Remove the arrays since we only need the counts
+        delete bookmark.post.likes;
+        delete bookmark.post.comments;
+        delete bookmark.post.shares;
+
+        if (bookmark.post?.pollId) {
+          const post = bookmark.post;
+          const pollData = post.pollId;
+
+          const uniqueVoters = new Map();
+          pollData.options.forEach((option) => {
+            option.votes.forEach((vote) => {
+              if (vote.user) {
+                uniqueVoters.set(vote.user._id.toString(), {
+                  _id: vote.user._id,
+                  username: vote.user.username,
+                  name: vote.user.name,
+                  profilePic: vote.user.profilePic,
+                });
+              }
+            });
+          });
+
+          const allVoters = Array.from(uniqueVoters.values());
+
+          post.pollId.options = pollData.options.map((option) => ({
+            _id: option._id,
+            optionText: option.optionText,
+            voteCount: option.votes.length,
+            hasVoted: option.votes.some(
+              (vote) => vote.user && vote.user._id.toString() === userId
+            ),
+            votePercentage:
+              allVoters.length > 0
+                ? ((option.votes.length / allVoters.length) * 100).toFixed(1)
+                : "0",
+            votes: option.votes
+              .filter((vote) => vote.user)
+              .map((vote) => ({
+                _id: vote._id,
+                user: {
+                  _id: vote.user._id,
+                  username: vote.user.username,
+                  name: vote.user.name,
+                  profilePic: vote.user.profilePic,
+                },
+              })),
+          }));
+
+          post.pollId.totalVotes = {
+            count: allVoters.length,
+            voters: allVoters,
+          };
+          post.pollId.hasEnded = new Date() > new Date(pollData.endTime);
+          post.pollId.hasVoted = post.pollId.options.some(
+            (option) => option.hasVoted
+          );
+        }
       }
 
       if (bookmark.folder) {
@@ -1092,7 +1104,6 @@ exports.getUserBookmarks = async (req, res) => {
       }
     });
 
-    // Sort folders within each category by createdAt
     const foldersWithBookmarks = Array.from(folderMap.values()).sort(
       (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
     );
