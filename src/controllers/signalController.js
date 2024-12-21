@@ -71,7 +71,7 @@ exports.createFutureAccount = async (req, res) => {
           startingCapital: 0,
           name: `Signal ${setting.id || ""}`,
           reminder: setting.isEnabled, // Use specific reminder or default
-          startTime: setting.startTime,
+          startTime: setting.time,
           endTime: setting.endTime,
         });
       }
@@ -105,6 +105,33 @@ exports.createFutureAccount = async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to create future account",
+      details: error.message,
+    });
+  }
+};
+
+exports.deleteUserSignal = async (req, res) => {
+  try {
+    const userSignal = await UserSignal.findOne({ user: req.user.id });
+
+    if (!userSignal) {
+      return res.status(404).json({
+        success: false,
+        error: "User signal configuration not found",
+      });
+    }
+
+    await UserSignal.findByIdAndDelete(userSignal._id);
+
+    res.status(200).json({
+      success: true,
+      message: "User signal configuration deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete User Signal Error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to delete user signal configuration",
       details: error.message,
     });
   }

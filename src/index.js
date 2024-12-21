@@ -11,7 +11,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 const path = require("path");
 
-const bcrypt = require("bcryptjs");
+// const bcrypt = require("bcryptjs");
 
 const cors = require("cors");
 const { requestLogger } = require("./middleware");
