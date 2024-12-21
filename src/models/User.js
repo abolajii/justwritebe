@@ -7,6 +7,9 @@ const UserSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    country: {
+      type: String,
+    },
     isViewed: { type: Boolean, required: true, default: false },
     username: { type: String, required: true, unique: true },
     name: { type: String, required: true },
