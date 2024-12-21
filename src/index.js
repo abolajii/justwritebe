@@ -16,6 +16,8 @@ const path = require("path");
 const cors = require("cors");
 const { requestLogger } = require("./middleware");
 const User = require("./models/User");
+const Signal = require("./models/Signal");
+const UserSignal = require("./models/UserSignal");
 
 app.use("/uploads", express.static(path.join(__dirname, "src", "/uploads")));
 
@@ -134,6 +136,22 @@ console.log(`Previous capital: $${result.previousCapital}`);
 // verifyCalculation(startingCapital, 2);
 
 // getPreviousCapital(user.recentCapital, user.numberOfSignal, user.totalSignals);
+
+// Get all signals
+const getAllSignals = async () => {
+  try {
+    const signals = await UserSignal.find(); // Fetch all signals
+
+    await UserSignal.deleteMany();
+
+    console.log(signals);
+  } catch (error) {
+    console.log(error);
+    // res.status(500).json({ error: error.message });
+  }
+};
+
+// getAllSignals();
 
 // Connect to MongoDB
 mongoose
