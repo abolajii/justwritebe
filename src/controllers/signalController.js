@@ -56,7 +56,7 @@ exports.createFutureAccount = async (req, res) => {
         return Signal.create({
           user: req.user.id,
           userTrade: false,
-          startingCapital: results.previousCapital,
+          startingCapital: 0,
           name: `Signal ${setting.id || ""}`,
           reminder: setting.isEnabled, // Use specific reminder or default
           startTime: setting.startTime,
