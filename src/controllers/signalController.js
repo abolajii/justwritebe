@@ -31,6 +31,16 @@ exports.createFutureAccount = async (req, res) => {
         .json({ error: "User already has signals configured!" });
     }
 
+    console.log({
+      reminder,
+      country,
+      startingCapital,
+      numberOfSignals,
+      reminderSettings,
+      totalSignals,
+      tradeSchedule,
+    });
+
     // Create main user signal record
     const newUserSignal = await UserSignal.create({
       user: req.user.id,
@@ -41,6 +51,8 @@ exports.createFutureAccount = async (req, res) => {
       reminder,
       numberOfSignals,
     });
+
+    console.log(newUserSignal);
 
     // Process reminder settings
     const signalPromises = reminderSettings.map(async (setting) => {
