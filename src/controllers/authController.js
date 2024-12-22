@@ -194,7 +194,7 @@ exports.login = async (req, res) => {
 
     await user.save();
 
-    const userSignal = await UserSignal.findOne({ user: req.user.id });
+    const userSignal = await UserSignal.findOne({ user: user._id });
 
     const isUserSignal = userSignal !== null;
 
