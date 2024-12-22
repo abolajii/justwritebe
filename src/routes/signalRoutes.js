@@ -9,4 +9,10 @@ router.post(
   authController.createFutureAccount
 ); // Register endpoint
 
+router.get(
+  "/user/signal",
+  [verifyToken],
+  authController.getUserSignalsByLoggedInUser
+);
+
 module.exports = router;

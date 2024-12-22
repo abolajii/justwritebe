@@ -15,13 +15,6 @@ exports.createFutureAccount = async (req, res) => {
   } = req.body;
 
   try {
-    // Calculate previous capital
-    const results = getPreviousCapital(
-      startingCapital,
-      numberOfSignals,
-      totalSignals
-    );
-
     // Check if user already has signals set up
     const userSignal = await UserSignal.findOne({ user: req.user.id });
 
@@ -41,6 +34,12 @@ exports.createFutureAccount = async (req, res) => {
       tradeSchedule,
       results,
     });
+    // Calculate previous capital
+    const results = await getPreviousCapital(
+      startingCapital,
+      numberOfSignals,
+      totalSignals
+    );
 
     // Create main user signal record
     const newUserSignal = await UserSignal.create({
@@ -52,8 +51,6 @@ exports.createFutureAccount = async (req, res) => {
       reminder,
       numberOfSignals,
     });
-
-    console.log(newUserSignal);
 
     // Process reminder settings
     const signalPromises = reminderSettings.map(async (setting) => {
@@ -135,5 +132,22 @@ exports.deleteUserSignal = async (req, res) => {
       error: "Failed to delete user signal configuration",
       details: error.message,
     });
+  }
+};
+
+exports.getUserSignalsByLoggedInUser = async (req, res) => {
+  try {
+    const user = req.user.id; // Extract user ID from req.user
+    const userSignals = await UserSignal.find({ user }); // Find signals belonging to the user
+
+    if (!userSignals || userSignals.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No signals found for this user." });
+    }
+
+    res.status(200).json(userSignals);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
