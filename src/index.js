@@ -152,7 +152,7 @@ const getAllSignals = async () => {
   }
 };
 
-getAllSignals();
+// getAllSignals();
 
 // Connect to MongoDB
 mongoose

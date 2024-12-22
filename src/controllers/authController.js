@@ -196,6 +196,8 @@ exports.login = async (req, res) => {
 
     const userSignal = await UserSignal.findOne({ user: user._id });
 
+    console.log({ userSignal });
+
     const isUserSignal = userSignal !== null;
 
     // Step 4: Group the stories by user
@@ -224,6 +226,7 @@ exports.login = async (req, res) => {
     res.status(200).json({
       message: "Login successful",
       token,
+      userSignal,
       user: {
         id: user._id,
         isUserSignal,
