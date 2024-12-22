@@ -7,6 +7,7 @@ const fs = require("fs");
 const ImageKit = require("imagekit");
 const Post = require("../models/Post");
 const Story = require("../models/Story");
+const UserSignal = require("../models/UserSignal");
 
 const imagekit = new ImageKit({
   publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
@@ -190,9 +191,12 @@ exports.login = async (req, res) => {
     ); // Optionally populate the user details
 
     user.lastLogin = Date.now();
-    user.isViewed = true;
 
     await user.save();
+
+    const userSignal = await UserSignal.findOne({ user: req.user.id });
+
+    const isUserSignal = userSignal !== null;
 
     // Step 4: Group the stories by user
     const groupedStories = userStories.reduce((grouped, story) => {
@@ -222,6 +226,7 @@ exports.login = async (req, res) => {
       token,
       user: {
         id: user._id,
+        isUserSignal,
         username: user.username,
         bio: user.bio,
         link: user.link,
