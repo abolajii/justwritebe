@@ -24,6 +24,13 @@ exports.createFutureAccount = async (req, res) => {
         .json({ error: "User already has signals configured!" });
     }
 
+    // Calculate previous capital
+    const results = await getPreviousCapital(
+      startingCapital,
+      numberOfSignals,
+      totalSignals
+    );
+
     console.log({
       reminder,
       country,
@@ -34,12 +41,6 @@ exports.createFutureAccount = async (req, res) => {
       tradeSchedule,
       results,
     });
-    // Calculate previous capital
-    const results = await getPreviousCapital(
-      startingCapital,
-      numberOfSignals,
-      totalSignals
-    );
 
     // Create main user signal record
     const newUserSignal = await UserSignal.create({
@@ -49,7 +50,7 @@ exports.createFutureAccount = async (req, res) => {
           ? results.previousCapital
           : startingCapital,
       reminder,
-      numberOfSignals,
+      numberOfSignals: totalSignals,
     });
 
     // Process reminder settings
@@ -138,7 +139,7 @@ exports.deleteUserSignal = async (req, res) => {
 exports.getUserSignalsByLoggedInUser = async (req, res) => {
   try {
     const user = req.user.id; // Extract user ID from req.user
-    const userSignals = await UserSignal.find({ user }); // Find signals belonging to the user
+    const userSignals = await UserSignal.findOne({ user }); // Find signals belonging to the user
 
     if (!userSignals || userSignals.length === 0) {
       return res
