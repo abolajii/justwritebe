@@ -39,6 +39,7 @@ exports.createFutureAccount = async (req, res) => {
       reminderSettings,
       totalSignals,
       tradeSchedule,
+      results,
     });
 
     // Create main user signal record

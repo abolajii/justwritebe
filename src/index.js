@@ -143,6 +143,7 @@ const getAllSignals = async () => {
     const signals = await UserSignal.find(); // Fetch all signals
 
     await UserSignal.deleteMany();
+    await Signal.deleteMany();
 
     console.log(signals);
   } catch (error) {
