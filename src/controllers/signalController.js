@@ -141,6 +141,8 @@ exports.getUserSignalsByLoggedInUser = async (req, res) => {
     const user = req.user.id; // Extract user ID from req.user
     const userSignals = await UserSignal.findOne({ user }); // Find signals belonging to the user
 
+    // over check if signal has already been created for the user if not create based not numberOfSignal
+
     if (!userSignals || userSignals.length === 0) {
       return res
         .status(404)

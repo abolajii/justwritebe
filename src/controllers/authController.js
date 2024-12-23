@@ -40,6 +40,10 @@ exports.me = async (req, res) => {
         select: "name username profilePic isVerified", // Select specific fields for the viewers
       });
 
+    const userSignal = await UserSignal.findOne({ user: req.user._id });
+
+    const isUserSignal = userSignal !== null;
+
     // Group the stories by user
     const groupedStories = userStories.reduce((grouped, story) => {
       const userId = story.user._id.toString();
@@ -61,6 +65,7 @@ exports.me = async (req, res) => {
         username: user.username,
         name: user.name,
         isViewed: user.isViewed,
+        isUserSignal,
         link: user.link,
         bio: user.bio,
         location: user.location,
@@ -196,8 +201,6 @@ exports.login = async (req, res) => {
 
     const userSignal = await UserSignal.findOne({ user: user._id });
 
-    console.log({ userSignal });
-
     const isUserSignal = userSignal !== null;
 
     // Step 4: Group the stories by user
@@ -229,7 +232,6 @@ exports.login = async (req, res) => {
       user: {
         id: user._id,
         isUserSignal,
-        isUserSignal: userSignal,
         username: user.username,
         bio: user.bio,
         link: user.link,
