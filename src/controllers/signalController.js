@@ -154,3 +154,22 @@ exports.getUserSignalsByLoggedInUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.getSignalsByLoggedInUser = async (req, res) => {
+  try {
+    const user = req.user.id; // Extract user ID from req.user
+    const signals = await Signal.find({ user }); // Find signals belonging to the user
+
+    // over check if signal has already been created for the user if not create based not numberOfSignal
+
+    if (!signals || signals.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No signals found for this user." });
+    }
+
+    res.status(200).json(signals);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
