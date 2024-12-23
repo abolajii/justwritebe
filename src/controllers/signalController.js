@@ -175,3 +175,56 @@ exports.getSignalsByLoggedInUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.getSignalById = async (req, res) => {
+  try {
+    // Get signal by ID and authenticated user
+    const signal = await Signal.findOne({
+      _id: req.params.id,
+      user: req.user.id,
+    }).lean();
+
+    if (!signal) {
+      return res.status(404).json({
+        success: false,
+        error: "Signal not found or unauthorized",
+      });
+    }
+
+    // Get user signal configuration for additional context
+    const userSignal = await UserSignal.findOne({
+      user: req.user.id,
+    }).lean();
+
+    if (!userSignal) {
+      return res.status(404).json({
+        success: false,
+        error: "User signal configuration not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        signal,
+        userSignal,
+      },
+    });
+  } catch (error) {
+    console.error("Get Signal By ID Error:", error);
+
+    // Handle invalid ObjectId error specifically
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid signal ID format",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: "Failed to get signal",
+      details: error.message,
+    });
+  }
+};
