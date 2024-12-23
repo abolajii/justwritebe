@@ -158,7 +158,9 @@ exports.getUserSignalsByLoggedInUser = async (req, res) => {
 exports.getSignalsByLoggedInUser = async (req, res) => {
   try {
     const user = req.user.id; // Extract user ID from req.user
-    const signals = await Signal.find({ user }); // Find signals belonging to the user
+    const signals = await Signal.find({ user }).sort({
+      createdAt: -1,
+    }); // Find signals belonging to the user
 
     // over check if signal has already been created for the user if not create based not numberOfSignal
 
