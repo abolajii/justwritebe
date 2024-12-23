@@ -40,7 +40,7 @@ exports.me = async (req, res) => {
         select: "name username profilePic isVerified", // Select specific fields for the viewers
       });
 
-    const userSignal = await UserSignal.findOne({ user: req.user._id });
+    const userSignal = await UserSignal.findOne({ user: req.user.id });
 
     const isUserSignal = userSignal !== null;
 
