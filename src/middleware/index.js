@@ -116,4 +116,89 @@ const checkAndCreateDailySignal = async (req, res, next) => {
   }
 };
 
-module.exports = { verifyToken, requestLogger, checkAndCreateDailySignal };
+const getUserDailySignal = async (req, res, next) => {
+  try {
+    const userId = req.user.id; // Assuming user ID is available in req.user
+
+    // 1. Find the UserSignal
+    const userSignal = await UserSignal.findOne({ user: userId }).populate(
+      "signals"
+    );
+
+    if (!userSignal) {
+      return res.status(404).json({
+        success: false,
+        message: "UserSignal not found for this user.",
+      });
+    }
+
+    // 2. Check today's daily signals
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+    const dailySignals = await DailySignal.find({
+      user: userId,
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    // If daily signals exist, return them
+    if (dailySignals.length > 0) {
+      return res.status(200).json({
+        success: true,
+        message: "Daily signals already exist for today.",
+        data: dailySignals,
+      });
+    }
+
+    // 3. Iterate through the signals array and create a DailySignal for each
+    const signals = userSignal.signals || [];
+    if (signals.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No signals associated with the UserSignal.",
+      });
+    }
+
+    const createdDailySignals = [];
+
+    for (const signal of signals) {
+      const { startingCapital, reminder, startTime, endTime, name, userTrade } =
+        signal;
+
+      const dailySignal = new DailySignal({
+        user: userId,
+        capital: startingCapital,
+        reminder,
+        time: `${startTime} - ${endTime}`,
+        name,
+        userTrade: userTrade || false,
+        prevProfit: "0", // Default previous profit
+        profit: "0", // Default profit; adjust based on logic
+      });
+
+      await dailySignal.save();
+      createdDailySignals.push(dailySignal);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Daily signals created successfully.",
+      data: createdDailySignals,
+    });
+  } catch (error) {
+    console.error("Get Daily Signals Error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch or create daily signals",
+      details: error.message,
+    });
+  }
+};
+
+module.exports = {
+  verifyToken,
+  requestLogger,
+  checkAndCreateDailySignal,
+  getUserDailySignal,
+};
