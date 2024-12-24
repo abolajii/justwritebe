@@ -227,3 +227,28 @@ exports.getSignalById = async (req, res) => {
     });
   }
 };
+
+exports.getUserDailySignal = async (req, res, next) => {
+  try {
+    const dailySignals = await DailySignal.find({ user: req.user.id });
+
+    if (!dailySignals || dailySignals.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No daily signals found for this user",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: dailySignals,
+    });
+  } catch (error) {
+    console.error("Get Daily Signals Error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch daily signals",
+      details: error.message,
+    });
+  }
+};
