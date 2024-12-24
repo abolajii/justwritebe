@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/signalController");
-const { verifyToken } = require("../middleware");
+const { verifyToken, checkAndCreateDailySignal } = require("../middleware");
 
 router.post(
   "/create/future",
-  [verifyToken],
+  [verifyToken, checkAndCreateDailySignal],
   authController.createFutureAccount
 ); // Register endpoint
 
