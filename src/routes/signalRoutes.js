@@ -17,8 +17,8 @@ router.get(
 
 router.get("/signal", [verifyToken], authController.getSignalsByLoggedInUser);
 
-router.get("/signal/:id", [verifyToken], authController.getSignalById);
+router.get("/signal/daily", [verifyToken], authController.getUserDailySignal);
 
-router.get("/daily/signal", [verifyToken], authController.getUserDailySignal);
+router.get("/signal/:id", [verifyToken], authController.getSignalById);
 
 module.exports = router;
