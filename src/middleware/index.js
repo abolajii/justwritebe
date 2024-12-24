@@ -116,6 +116,4 @@ const checkAndCreateDailySignal = async (req, res, next) => {
   }
 };
 
-module.exports = checkAndCreateDailySignal;
-
-module.exports = { verifyToken, requestLogger };
+module.exports = { verifyToken, requestLogger, checkAndCreateDailySignal };
