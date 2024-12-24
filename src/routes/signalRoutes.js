@@ -1,36 +1,24 @@
 const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/signalController");
-const { verifyToken, checkAndCreateDailySignal } = require("../middleware");
+const { verifyToken } = require("../middleware");
 
 router.post(
   "/create/future",
-  [verifyToken, checkAndCreateDailySignal],
+  [verifyToken],
   authController.createFutureAccount
 ); // Register endpoint
 
 router.get(
   "/user/signal",
-  [verifyToken, checkAndCreateDailySignal],
+  [verifyToken],
   authController.getUserSignalsByLoggedInUser
 );
 
-router.get(
-  "/signal",
-  [verifyToken, checkAndCreateDailySignal],
-  authController.getSignalsByLoggedInUser
-);
+router.get("/signal", [verifyToken], authController.getSignalsByLoggedInUser);
 
-router.get(
-  "/signal/:id",
-  [verifyToken, checkAndCreateDailySignal],
-  authController.getSignalById
-);
+router.get("/signal/:id", [verifyToken], authController.getSignalById);
 
-router.get(
-  "/daily",
-  [verifyToken, checkAndCreateDailySignal],
-  authController.getUserDailySignal
-);
+router.get("/daily/signal", [verifyToken], authController.getUserDailySignal);
 
 module.exports = router;
