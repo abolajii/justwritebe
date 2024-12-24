@@ -32,17 +32,6 @@ exports.createFutureAccount = async (req, res) => {
       totalSignals
     );
 
-    console.log({
-      reminder,
-      country,
-      startingCapital,
-      numberOfSignals,
-      reminderSettings,
-      totalSignals,
-      tradeSchedule,
-      results,
-    });
-
     // Create signals based on reminder settings
     const createdSignals = [];
     for (const setting of reminderSettings) {
@@ -179,7 +168,7 @@ exports.getSignalsByLoggedInUser = async (req, res) => {
 exports.getSignalById = async (req, res) => {
   try {
     // Get signal by ID and authenticated user
-    const signal = await Signal.findOne({
+    const signal = await DailySignal.findOne({
       _id: req.params.id,
       user: req.user.id,
     }).lean();
@@ -187,7 +176,7 @@ exports.getSignalById = async (req, res) => {
     if (!signal) {
       return res.status(404).json({
         success: false,
-        error: "Signal not found or unauthorized",
+        error: "Daily Signal not found or unauthorized",
       });
     }
 
