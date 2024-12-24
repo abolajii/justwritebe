@@ -16,9 +16,9 @@ exports.createFutureAccount = async (req, res) => {
 
   try {
     // Check if user already has signals set up
-    const userSignal = await UserSignal.findOne({ user: req.user.id });
+    const existingUserSignal = await UserSignal.findOne({ user: req.user.id });
 
-    if (userSignal) {
+    if (existingUserSignal) {
       return res
         .status(400)
         .json({ error: "User already has signals configured!" });
@@ -42,19 +42,9 @@ exports.createFutureAccount = async (req, res) => {
       results,
     });
 
-    // Create main user signal record
-    const newUserSignal = await UserSignal.create({
-      user: req.user.id,
-      startingCapital:
-        tradeSchedule === "inbetween"
-          ? results.previousCapital
-          : startingCapital,
-      reminder,
-      numberOfSignals: totalSignals,
-    });
-
-    // Process reminder settings
-    const signalPromises = reminderSettings.map(async (setting) => {
+    // Create signals based on reminder settings
+    const createdSignals = [];
+    for (const setting of reminderSettings) {
       // Check if signal already exists for this time slot
       const existingSignal = await Signal.findOne({
         user: req.user.id,
@@ -63,22 +53,31 @@ exports.createFutureAccount = async (req, res) => {
       });
 
       if (!existingSignal) {
-        // Create new signal if none exists
-        return Signal.create({
+        // Create new signal
+        const newSignal = await Signal.create({
           user: req.user.id,
           userTrade: false,
           startingCapital: 0,
           name: `Signal ${setting.id || ""}`,
-          reminder: setting.isEnabled, // Use specific reminder or default
-          startTime: setting.time,
+          reminder: setting.isEnabled,
+          startTime: setting.startTime,
           endTime: setting.endTime,
         });
+        createdSignals.push(newSignal);
       }
-      return null;
-    });
+    }
 
-    // Wait for all signal creations to complete
-    const createdSignals = await Promise.all(signalPromises);
+    // Create main user signal record and include signals
+    const newUserSignal = await UserSignal.create({
+      user: req.user.id,
+      startingCapital:
+        tradeSchedule === "inbetween"
+          ? results.previousCapital
+          : startingCapital,
+      reminder,
+      numberOfSignals: totalSignals,
+      signals: createdSignals.map((signal) => signal._id), // Store references to Signal documents
+    });
 
     // Update user's country
     await User.findByIdAndUpdate(
@@ -90,7 +89,7 @@ exports.createFutureAccount = async (req, res) => {
     // Prepare response
     const response = {
       userSignal: newUserSignal,
-      signals: createdSignals.filter((signal) => signal !== null), // Remove null values from skipped signals
+      signals: createdSignals,
       calculatedCapital: results.previousCapital,
     };
 

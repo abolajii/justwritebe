@@ -1,4 +1,3 @@
-// models/TrendingWord.js
 const mongoose = require("mongoose");
 
 const UserSignalSchema = new mongoose.Schema(
@@ -20,6 +19,12 @@ const UserSignalSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    signals: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Signal",
+      },
+    ],
   },
   { timestamps: true }
 );
