@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Signal = require("../models/Signal");
+const DailySignal = require("../models/DailySignal");
 const UserSignal = require("../models/UserSignal");
 const { getPreviousCapital } = require("../utils");
 
