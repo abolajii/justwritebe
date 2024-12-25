@@ -17,6 +17,12 @@ router.get(
 
 router.get("/signal", [verifyToken], authController.getSignalsByLoggedInUser);
 
+router.get(
+  "/all/signal",
+  [verifyToken],
+  authController.groupDailySignalByCreatedDateForUser
+);
+
 router.get("/signal/daily", [verifyToken], authController.getUserDailySignal);
 
 router.get("/signal/:id", [verifyToken], authController.getSignalById);

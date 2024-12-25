@@ -141,46 +141,38 @@ console.log(`Previous capital: $${result.previousCapital}`);
 const listAllSignal = async () => {};
 
 // Get all signals
-const updateDailySignals = async () => {
+const groupDailySignalByCreatedDateForUser = async (userId) => {
   try {
-    const previousCapitals = [
-      { user: "6721f7014917e063ba3dc449", capital: 316.349592 },
-      { user: "6726114ab89139668bc660bb", capital: 115.44707199999999 },
-    ];
+    const groupedSignals = await DailySignal.aggregate([
+      // {
+      //   $match: { user: mongoose.Types.ObjectId(userId) }, // Filter by user ID
+      // },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+          },
+          signals: { $push: "$$ROOT" }, // Include the full signal data
+          count: { $sum: 1 }, // Count the number of signals for each date
+        },
+      },
+      { $sort: { _id: 1 } }, // Sort by date ascending
+    ]);
 
-    // Fetch all daily signals
-    const usersSignals = await DailySignal.find();
-
-    for (let signal of usersSignals) {
-      // Check if signal matches the name "Signal 1"
-      if (signal.name === "Signal 2") {
-        console.log("Processing Signal 2:", signal);
-
-        // Find matching user data from previousCapitals
-        const userCapitalData = previousCapitals.find(
-          (data) => data.user === signal.user.toString()
-        );
-
-        // Update signal with previous capital if user data exists
-        if (userCapitalData) {
-          signal.capital = userCapitalData.capital;
-          signal.prevCapital = 0;
-          // signal.status = "updated"; // Update status to reflect change
-
-          // Save the updated signal
-          await signal.save();
-          console.log(`Updated signal for user ${signal.user}`);
-        }
-      }
-    }
-
-    console.log("Daily signals updated successfully.");
+    console.log(
+      `Grouped Daily Signals by Created Date for User ${userId}:`,
+      groupedSignals
+    );
+    return groupedSignals; // Optionally return the data
   } catch (error) {
-    console.error("Error updating daily signals:", error.message);
+    console.error(
+      `Error grouping daily signals for user ${userId}:`,
+      error.message
+    );
   }
 };
 
-// updateDailySignals();
+groupDailySignalByCreatedDateForUser();
 
 // Connect to MongoDB
 mongoose

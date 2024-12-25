@@ -390,11 +390,37 @@ exports.updateBalance = async (req, res) => {
   }
 };
 
-const updateAllUsersDailySignalCapital = async () => {
+exports.groupDailySignalByCreatedDateForUser = async (req, res) => {
+  const userId = req.user.id;
   try {
-    // Get user's starting capital
-    const userSignals = await UserSignal.find({});
+    const groupedSignals = await DailySignal.aggregate([
+      {
+        $match: { user: mongoose.Types.ObjectId(userId) }, // Filter by user ID
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+          },
+          signals: { $push: "$$ROOT" }, // Include the full signal data
+          count: { $sum: 1 }, // Count the number of signals for each date
+        },
+      },
+      { $sort: { _id: 1 } }, // Sort by date ascending
+    ]);
 
-    // map through all users get the first daily signal and update the capital
-  } catch (error) {}
+    console.log(
+      `Grouped Daily Signals by Created Date for User ${userId}:`,
+      groupedSignals
+    );
+    return res.status(200).json({
+      message: "All signal retrieved",
+      groupedSignals,
+    }); // Optionally return the data
+  } catch (error) {
+    res.status(500).json({
+      message: `Error grouping daily signals for user ${userId}:`,
+      error: error.message,
+    });
+  }
 };
