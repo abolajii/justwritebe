@@ -21,4 +21,6 @@ router.get("/signal/daily", [verifyToken], authController.getUserDailySignal);
 
 router.get("/signal/:id", [verifyToken], authController.getSignalById);
 
+router.put("/signal/:id", [verifyToken], authController.updateBalance);
+
 module.exports = router;

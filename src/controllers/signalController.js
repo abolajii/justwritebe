@@ -218,7 +218,7 @@ exports.getSignalById = async (req, res) => {
   }
 };
 
-exports.getUserDailySignal = async (req, res, next) => {
+exports.getUserDailySignal = async (req, res) => {
   try {
     const userId = req.user.id; // Assuming user ID is available in req.user
 
@@ -294,6 +294,91 @@ exports.getUserDailySignal = async (req, res, next) => {
       success: false,
       error: "Failed to fetch or create daily signals",
       details: error.message,
+    });
+  }
+};
+
+exports.updateBalance = async (req, res) => {
+  const signalProfitPercentage = 0.88; // 88%
+  const investmentPercentage = 0.01; // 1%
+
+  try {
+    const userId = req.user.id;
+    const signalId = req.params.signalId;
+
+    // 1. Find the UserSignal and validate
+    const userSignal = await UserSignal.findOne({ user: userId });
+
+    if (!userSignal) {
+      return res.status(404).json({
+        success: false,
+        message: "UserSignal not found for this user.",
+      });
+    }
+
+    // 2. Find the DailySignal
+    const dailySignal = await DailySignal.findOne({
+      user: userId,
+      _id: signalId,
+    });
+
+    if (!dailySignal) {
+      return res.status(404).json({
+        success: false,
+        message: "Daily signal not found.",
+      });
+    }
+
+    // Calculate investment and profit
+    const investmentAmount = userSignal.startingCapital * investmentPercentage;
+    const profitAmount = investmentAmount * signalProfitPercentage;
+    const totalReturn = investmentAmount + profitAmount;
+    const newCapital =
+      userSignal.startingCapital - investmentAmount + totalReturn;
+
+    // 3. Update the DailySignal
+    dailySignal.capital = newCapital;
+    dailySignal.prevProfit = dailySignal.profit;
+    dailySignal.profit = `${(signalProfitPercentage * 100).toFixed(2)}%`;
+    dailySignal.userTrade = true;
+    await dailySignal.save();
+
+    // 4. Update UserSignal
+    userSignal.startingCapital = newCapital;
+
+    // Only add the signal to signals array if it's not already there
+    if (!userSignal.signals.includes(signalId)) {
+      userSignal.signals.push(signalId);
+      userSignal.numberOfSignals = userSignal.signals.length;
+    }
+
+    await userSignal.save();
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        newBalance: newCapital,
+        transaction: {
+          investmentAmount,
+          profitAmount,
+          totalReturn,
+          profitPercentage: `${(signalProfitPercentage * 100).toFixed(2)}%`,
+        },
+        signal: {
+          id: dailySignal._id,
+          name: dailySignal.name,
+          time: dailySignal.time,
+          profit: dailySignal.profit,
+          prevProfit: dailySignal.prevProfit,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error updating balance:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error updating balance",
+      error: error.message,
     });
   }
 };
