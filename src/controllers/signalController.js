@@ -3,6 +3,7 @@ const Signal = require("../models/Signal");
 const DailySignal = require("../models/DailySignal");
 const UserSignal = require("../models/UserSignal");
 const { getPreviousCapital } = require("../utils");
+const { default: mongoose } = require("mongoose");
 
 exports.createFutureAccount = async (req, res) => {
   const {
@@ -395,7 +396,7 @@ exports.groupDailySignalByCreatedDateForUser = async (req, res) => {
   try {
     const groupedSignals = await DailySignal.aggregate([
       {
-        $match: { user: userId }, // Filter by user ID
+        $match: { user: mongoose.Types.ObjectId(userId) }, // Filter by user ID
       },
       {
         $group: {
