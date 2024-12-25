@@ -395,7 +395,7 @@ exports.groupDailySignalByCreatedDateForUser = async (req, res) => {
   try {
     const groupedSignals = await DailySignal.aggregate([
       {
-        $match: { user: mongoose.Types.ObjectId(userId) }, // Filter by user ID
+        $match: { user: userId }, // Filter by user ID
       },
       {
         $group: {
