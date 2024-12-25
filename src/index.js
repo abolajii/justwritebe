@@ -97,7 +97,7 @@ const getPreviousCapital = (recentCapital, numberOfSignal, totalSignals) => {
 
 // Test the function
 const testCase = {
-  recentCapital: 107.62,
+  recentCapital: 115.44,
   numberOfSignal: 1,
   totalSignalsPerDay: 2,
 };
@@ -138,70 +138,49 @@ console.log(`Previous capital: $${result.previousCapital}`);
 
 // getPreviousCapital(user.recentCapital, user.numberOfSignal, user.totalSignals);
 
+const listAllSignal = async () => {};
+
 // Get all signals
-const getAllSignals = async () => {
+const updateDailySignals = async () => {
   try {
-    const signals = await UserSignal.find(); // Fetch all signals
+    const previousCapitals = [
+      { user: "6721f7014917e063ba3dc449", capital: 316.349592 },
+      { user: "6726114ab89139668bc660bb", capital: 115.44707199999999 },
+    ];
 
-    await UserSignal.deleteMany();
-    await Signal.deleteMany();
-    await DailySignal.deleteMany();
+    // Fetch all daily signals
+    const usersSignals = await DailySignal.find();
 
-    console.log(signals);
+    for (let signal of usersSignals) {
+      // Check if signal matches the name "Signal 1"
+      if (signal.name === "Signal 2") {
+        console.log("Processing Signal 2:", signal);
+
+        // Find matching user data from previousCapitals
+        const userCapitalData = previousCapitals.find(
+          (data) => data.user === signal.user.toString()
+        );
+
+        // Update signal with previous capital if user data exists
+        if (userCapitalData) {
+          signal.capital = userCapitalData.capital;
+          signal.prevCapital = 0;
+          // signal.status = "updated"; // Update status to reflect change
+
+          // Save the updated signal
+          await signal.save();
+          console.log(`Updated signal for user ${signal.user}`);
+        }
+      }
+    }
+
+    console.log("Daily signals updated successfully.");
   } catch (error) {
-    console.log(error);
-    // res.status(500).json({ error: error.message });
+    console.error("Error updating daily signals:", error.message);
   }
 };
 
-// getAllSignals();
-
-const updateAllUsersDailySignalCapital = async () => {
-  try {
-    // Get all user signals
-    const userSignals = await UserSignal.find({});
-
-    // Map through users and update their first daily signals
-    const updates = await Promise.all(
-      userSignals.map(async (userSignal) => {
-        const firstDailySignal = await DailySignal.findOneAndUpdate(
-          { user: userSignal.user },
-          { capital: userSignal.startingCapital, userTrade: trade },
-          { new: true }
-        ).sort({ createdAt: 1 });
-
-        return {
-          userId: userSignal.user,
-          updated: !!firstDailySignal,
-          startingCapital: userSignal.startingCapital,
-        };
-      })
-    );
-
-    console.log({
-      success: true,
-      totalProcessed: updates.length,
-      updatedSignals: updates.filter((u) => u.updated).length,
-      updates,
-    });
-
-    // Return summary of updates
-    return {
-      success: true,
-      totalProcessed: updates.length,
-      updatedSignals: updates.filter((u) => u.updated).length,
-      updates,
-    };
-  } catch (error) {
-    console.error("Error updating user signals:", error);
-    return {
-      success: false,
-      message: error.message,
-    };
-  }
-};
-
-// updateAllUsersDailySignalCapital();
+// updateDailySignals();
 
 // Connect to MongoDB
 mongoose

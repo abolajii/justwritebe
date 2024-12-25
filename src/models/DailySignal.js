@@ -8,10 +8,6 @@ const DailySignalSchema = new mongoose.Schema(
       required: true,
       ref: "User",
     },
-    // userTrade: {
-    //   type: Boolean,
-    //   required: false,
-    // },
     capital: {
       type: Number,
       required: true,
@@ -27,12 +23,8 @@ const DailySignalSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    prevProfit: {
-      type: String,
-      required: true,
-    },
-    profit: {
-      type: String,
+    prevCapital: {
+      type: Number,
       required: true,
     },
     status: {

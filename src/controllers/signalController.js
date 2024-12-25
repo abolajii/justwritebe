@@ -265,8 +265,7 @@ exports.getUserDailySignal = async (req, res) => {
     const createdDailySignals = [];
 
     for (const signal of signals) {
-      const { startingCapital, reminder, startTime, endTime, name, userTrade } =
-        signal;
+      const { reminder, startTime, endTime, name } = signal;
 
       const dailySignal = new DailySignal({
         user: userId,
@@ -274,9 +273,8 @@ exports.getUserDailySignal = async (req, res) => {
         reminder,
         time: `${startTime} - ${endTime}`,
         name,
-        userTrade: userTrade || false,
-        prevProfit: "0", // Default previous profit
-        profit: "0", // Default profit; adjust based on logic
+        prevProfit: 0, // Default previous profit
+        profit: 0, // Default profit; adjust based on logic
       });
 
       await dailySignal.save();
@@ -299,16 +297,15 @@ exports.getUserDailySignal = async (req, res) => {
 };
 
 exports.updateBalance = async (req, res) => {
-  const signalProfitPercentage = 0.88; // 88%
-  const investmentPercentage = 0.01; // 1%
+  const signalProfitPercentage = 0.88;
+  const investmentPercentage = 0.01;
+  const { received } = req.body;
 
   try {
     const userId = req.user.id;
     const signalId = req.params.id;
 
-    // 1. Find the UserSignal and validate
     const userSignal = await UserSignal.findOne({ user: userId });
-
     if (!userSignal) {
       return res.status(404).json({
         success: false,
@@ -316,12 +313,10 @@ exports.updateBalance = async (req, res) => {
       });
     }
 
-    // 2. Find the DailySignal
     const dailySignal = await DailySignal.findOne({
       user: userId,
       _id: signalId,
     });
-
     if (!dailySignal) {
       return res.status(404).json({
         success: false,
@@ -329,29 +324,41 @@ exports.updateBalance = async (req, res) => {
       });
     }
 
-    // Calculate investment and profit
+    if (!received) {
+      await DailySignal.findByIdAndUpdate(signalId, { status: "not-received" });
+      return res.status(200).json({ message: "Signal not received!" });
+    }
+
     const investmentAmount = userSignal.startingCapital * investmentPercentage;
     const profitAmount = investmentAmount * signalProfitPercentage;
     const totalReturn = investmentAmount + profitAmount;
     const newCapital =
       userSignal.startingCapital - investmentAmount + totalReturn;
 
-    // 3. Update the DailySignal
-    dailySignal.capital = newCapital;
-    dailySignal.prevProfit = dailySignal.profit;
-    dailySignal.profit = `${(signalProfitPercentage * 100).toFixed(2)}%`;
-    dailySignal.userTrade = true;
-    await dailySignal.save();
+    // Update current signal
+    await DailySignal.findByIdAndUpdate(signalId, {
+      capital: newCapital,
+      prevCapital: userSignal.startingCapital,
+      profit: `${(signalProfitPercentage * 100).toFixed(2)}`,
+      status: "completed",
+    });
 
-    // 4. Update UserSignal
-    userSignal.startingCapital = newCapital;
+    // Update next Signal 2
+    await DailySignal.findOneAndUpdate(
+      {
+        user: userId,
+        createdAt: { $gt: dailySignal.createdAt },
+      },
+      { capital: newCapital },
+      { sort: { createdAt: 1 } }
+    );
 
-    // Only add the signal to signals array if it's not already there
+    // Update UserSignal
     if (!userSignal.signals.includes(signalId)) {
       userSignal.signals.push(signalId);
       userSignal.numberOfSignals = userSignal.signals.length;
     }
-
+    userSignal.startingCapital = newCapital;
     await userSignal.save();
 
     return res.status(200).json({
@@ -369,7 +376,7 @@ exports.updateBalance = async (req, res) => {
           name: dailySignal.name,
           time: dailySignal.time,
           profit: dailySignal.profit,
-          prevProfit: dailySignal.prevProfit,
+          prevCapital: dailySignal.prevCapital,
         },
       },
     });
@@ -382,6 +389,7 @@ exports.updateBalance = async (req, res) => {
     });
   }
 };
+
 const updateAllUsersDailySignalCapital = async () => {
   try {
     // Get user's starting capital
