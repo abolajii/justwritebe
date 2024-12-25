@@ -141,38 +141,6 @@ console.log(`Previous capital: $${result.previousCapital}`);
 const listAllSignal = async () => {};
 
 // Get all signals
-const groupDailySignalByCreatedDateForUser = async (userId) => {
-  try {
-    const groupedSignals = await DailySignal.aggregate([
-      // {
-      //   $match: { user: mongoose.Types.ObjectId(userId) }, // Filter by user ID
-      // },
-      {
-        $group: {
-          _id: {
-            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
-          },
-          signals: { $push: "$$ROOT" }, // Include the full signal data
-          count: { $sum: 1 }, // Count the number of signals for each date
-        },
-      },
-      { $sort: { _id: 1 } }, // Sort by date ascending
-    ]);
-
-    console.log(
-      `Grouped Daily Signals by Created Date for User ${userId}:`,
-      groupedSignals
-    );
-    return groupedSignals; // Optionally return the data
-  } catch (error) {
-    console.error(
-      `Error grouping daily signals for user ${userId}:`,
-      error.message
-    );
-  }
-};
-
-groupDailySignalByCreatedDateForUser();
 
 // Connect to MongoDB
 mongoose

@@ -394,9 +394,14 @@ exports.updateBalance = async (req, res) => {
 exports.groupDailySignalByCreatedDateForUser = async (req, res) => {
   const userId = req.user.id;
   try {
+    const userObjectId =
+      typeof userId === "number"
+        ? mongoose.Types.ObjectId.createFromTime(userId)
+        : new mongoose.Types.ObjectId(userId.toString());
+
     const groupedSignals = await DailySignal.aggregate([
       {
-        $match: { user: mongoose.Types.ObjectId(userId) }, // Filter by user ID
+        $match: { user: userObjectId }, // Filter by user ID
       },
       {
         $group: {
