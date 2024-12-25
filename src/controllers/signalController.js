@@ -270,7 +270,7 @@ exports.getUserDailySignal = async (req, res) => {
 
       const dailySignal = new DailySignal({
         user: userId,
-        capital: startingCapital,
+        capital: 0,
         reminder,
         time: `${startTime} - ${endTime}`,
         name,
@@ -381,4 +381,12 @@ exports.updateBalance = async (req, res) => {
       error: error.message,
     });
   }
+};
+const updateAllUsersDailySignalCapital = async () => {
+  try {
+    // Get user's starting capital
+    const userSignals = await UserSignal.find({});
+
+    // map through all users get the first daily signal and update the capital
+  } catch (error) {}
 };

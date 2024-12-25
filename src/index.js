@@ -18,6 +18,7 @@ const { requestLogger } = require("./middleware");
 const User = require("./models/User");
 const Signal = require("./models/Signal");
 const UserSignal = require("./models/UserSignal");
+const DailySignal = require("./models/DailySignal");
 
 app.use("/uploads", express.static(path.join(__dirname, "src", "/uploads")));
 
@@ -144,6 +145,7 @@ const getAllSignals = async () => {
 
     await UserSignal.deleteMany();
     await Signal.deleteMany();
+    await DailySignal.deleteMany();
 
     console.log(signals);
   } catch (error) {
@@ -153,6 +155,53 @@ const getAllSignals = async () => {
 };
 
 // getAllSignals();
+
+const updateAllUsersDailySignalCapital = async () => {
+  try {
+    // Get all user signals
+    const userSignals = await UserSignal.find({});
+
+    // Map through users and update their first daily signals
+    const updates = await Promise.all(
+      userSignals.map(async (userSignal) => {
+        const firstDailySignal = await DailySignal.findOneAndUpdate(
+          { user: userSignal.user },
+          { capital: userSignal.startingCapital, userTrade: trade },
+          { new: true }
+        ).sort({ createdAt: 1 });
+
+        return {
+          userId: userSignal.user,
+          updated: !!firstDailySignal,
+          startingCapital: userSignal.startingCapital,
+        };
+      })
+    );
+
+    console.log({
+      success: true,
+      totalProcessed: updates.length,
+      updatedSignals: updates.filter((u) => u.updated).length,
+      updates,
+    });
+
+    // Return summary of updates
+    return {
+      success: true,
+      totalProcessed: updates.length,
+      updatedSignals: updates.filter((u) => u.updated).length,
+      updates,
+    };
+  } catch (error) {
+    console.error("Error updating user signals:", error);
+    return {
+      success: false,
+      message: error.message,
+    };
+  }
+};
+
+// updateAllUsersDailySignalCapital();
 
 // Connect to MongoDB
 mongoose
