@@ -304,7 +304,7 @@ exports.updateBalance = async (req, res) => {
 
   try {
     const userId = req.user.id;
-    const signalId = req.params.signalId;
+    const signalId = req.params.id;
 
     // 1. Find the UserSignal and validate
     const userSignal = await UserSignal.findOne({ user: userId });
