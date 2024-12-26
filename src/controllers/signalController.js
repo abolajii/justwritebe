@@ -270,10 +270,12 @@ exports.getUserDailySignal = async (req, res) => {
 
       const dailySignal = new DailySignal({
         user: userId,
-        capital: 0,
         reminder,
         time: `${startTime} - ${endTime}`,
         name,
+        prevCapital: userSignal.startingCapital,
+        capital: userSignal.startingCapital,
+
         prevProfit: 0, // Default previous profit
         profit: 0, // Default profit; adjust based on logic
       });
@@ -318,6 +320,7 @@ exports.updateBalance = async (req, res) => {
       user: userId,
       _id: signalId,
     });
+
     if (!dailySignal) {
       return res.status(404).json({
         success: false,

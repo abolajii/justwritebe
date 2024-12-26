@@ -138,7 +138,47 @@ console.log(`Previous capital: $${result.previousCapital}`);
 
 // getPreviousCapital(user.recentCapital, user.numberOfSignal, user.totalSignals);
 
-const listAllSignal = async () => {};
+// const listAllSignal = async () => {
+//   try {
+//     const response = await Signal.find({
+//       user: "6726114ab89139668bc660bb",
+//     });
+
+//     for (let index = 0; index < response.length; index++) {
+//       const element = response[index];
+//       if (element.name === "Signal 1") {
+//         element.startTime = "14:00";
+//         element.endTime = "14:30";
+
+//         await element.save();
+//       } else {
+//         element.startTime = "19:00";
+//         element.endTime = "19:30";
+
+//         await element.save();
+//       }
+//     }
+
+//     // const userSignal = await UserSignal.findOne({
+//     //   user: "6726114ab89139668bc660bb",
+//     // });
+
+//     // const signal = response[1];
+//     // signal.prevCapital = 115.44707199999999;
+//     // signal.capital = 115.44707199999999;
+
+//     // userSignal.startingCapital = 115.44707199999999;
+
+//     // await userSignal.save();
+//     // await signal.save();
+
+//     console.log(response);
+//   } catch (error) {
+//     console.log(error);
+//   }
+// };
+
+// listAllSignal();
 
 // Get all signals
 
