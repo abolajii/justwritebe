@@ -182,6 +182,21 @@ console.log(`Previous capital: $${result.previousCapital}`);
 
 // Get all signals
 
+const addDeposit = async () => {
+  // Create main user signal record and include signals
+
+  const { capital } = req.body;
+
+  const signal = await UserSignal.findOne({
+    username: "admin",
+  });
+
+  // signal.startingCapital = 14.215;
+
+  // also check if the
+  // await signal.save();
+};
+
 // Connect to MongoDB
 mongoose
   .connect(process.env.URI)

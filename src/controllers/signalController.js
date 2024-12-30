@@ -47,8 +47,6 @@ exports.createFutureAccount = async (req, res) => {
         // Create new signal
         const newSignal = await Signal.create({
           user: req.user.id,
-          userTrade: false,
-          startingCapital: 0,
           name: `Signal ${setting.id || ""}`,
           reminder: setting.isEnabled,
           startTime: setting.startTime,
@@ -274,9 +272,7 @@ exports.getUserDailySignal = async (req, res) => {
         time: `${startTime} - ${endTime}`,
         name,
         prevCapital: userSignal.startingCapital,
-        capital: userSignal.startingCapital,
-
-        prevProfit: 0, // Default previous profit
+        recentCapital: 0,
         profit: 0, // Default profit; adjust based on logic
       });
 
@@ -357,11 +353,6 @@ exports.updateBalance = async (req, res) => {
       { sort: { createdAt: 1 } }
     );
 
-    // Update UserSignal
-    if (!userSignal.signals.includes(signalId)) {
-      userSignal.signals.push(signalId);
-      userSignal.numberOfSignals = userSignal.signals.length;
-    }
     userSignal.startingCapital = newCapital;
     await userSignal.save();
 
@@ -432,4 +423,18 @@ exports.groupDailySignalByCreatedDateForUser = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+exports.addDeposit = async (req, res) => {
+  // Create main user signal record and include signals
+
+  const { capital } = req.body;
+
+  const signal = await UserSignal.findOne({
+    user: req.user.id,
+  });
+
+  signal.startingCapital = capital;
+
+  await signal.save();
 };

@@ -8,7 +8,7 @@ const DailySignalSchema = new mongoose.Schema(
       required: true,
       ref: "User",
     },
-    capital: {
+    recentCapital: {
       type: Number,
       required: true,
     },

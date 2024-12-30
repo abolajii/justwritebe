@@ -8,14 +8,6 @@ const SignalSchema = new mongoose.Schema(
       required: true,
       ref: "User",
     },
-    userTrade: {
-      type: Boolean,
-      required: false,
-    },
-    startingCapital: {
-      type: Number,
-      required: true,
-    },
     name: {
       type: String,
     },
