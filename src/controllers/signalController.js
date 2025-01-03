@@ -59,10 +59,7 @@ exports.createFutureAccount = async (req, res) => {
     // Create main user signal record and include signals
     const newUserSignal = await UserSignal.create({
       user: req.user.id,
-      startingCapital:
-        tradeSchedule === "inbetween"
-          ? results.previousCapital
-          : startingCapital,
+      startingCapital,
       reminder,
       numberOfSignals: totalSignals,
       signals: createdSignals.map((signal) => signal._id), // Store references to Signal documents

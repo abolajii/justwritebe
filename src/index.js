@@ -3,6 +3,8 @@ const express = require("express");
 const postRoutes = require("./routes/postRoutes");
 const authRoutes = require("./routes/authRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const folderRoutes = require("./routes/folderRoutes");
+
 const signalRoutes = require("./routes/signalRoutes");
 const mongoose = require("mongoose");
 const userRoutes = require("./routes/userRoutes");
@@ -44,6 +46,7 @@ app.use("/api/v1", postRoutes);
 app.use("/api/v1", userRoutes);
 app.use("/api/v1", messageRoutes);
 app.use("/api/v1", signalRoutes);
+app.use("/api/v1/folder", folderRoutes);
 
 const getPreviousCapital = (recentCapital, numberOfSignal, totalSignals) => {
   const signalProfitPercentage = 0.88; // 88%
@@ -185,17 +188,16 @@ console.log(`Previous capital: $${result.previousCapital}`);
 const addDeposit = async () => {
   // Create main user signal record and include signals
 
-  const { capital } = req.body;
-
-  const signal = await UserSignal.findOne({
-    username: "admin",
-  });
+  await UserSignal.deleteMany();
+  await DailySignal.deleteMany();
 
   // signal.startingCapital = 14.215;
 
   // also check if the
   // await signal.save();
 };
+
+// addDeposit();
 
 // Connect to MongoDB
 mongoose
