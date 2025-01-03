@@ -3,6 +3,7 @@ const router = express.Router();
 const folderController = require("../controllers/folderController");
 const mongoose = require("mongoose");
 const Folder = require("../models/Folder");
+const { verifyToken } = require("../middleware");
 
 // Middleware to validate ObjectId
 const validateObjectId = (req, res, next) => {
@@ -41,51 +42,57 @@ const validateItemData = (req, res, next) => {
 
 // Routes
 // GET /api/folders - Get all folders
-router.get("/", folderController.getAllFolders);
+router.get("/", [verifyToken], folderController.getAllFolders);
 
 // POST /api/folders - Create a new folder
 router.post(
   "/",
+  [verifyToken],
   (req, res, next) => {
     if (!req.body.name) {
       return res.status(400).json({ message: "Folder name is required" });
     }
+
     next();
   },
   folderController.createFolder
 );
 
 // GET /api/folders/:id - Get a specific folder
-router.get("/:id", validateObjectId, folderController.getFolder);
+router.get("/:id", [verifyToken, validateObjectId], folderController.getFolder);
 
 // POST /api/folders/:id/items - Add item to folder
 router.post(
   "/:id/items",
-  validateObjectId,
-  validateItemData,
+  [verifyToken, validateObjectId, validateItemData],
   folderController.addItemToFolder
 );
 
 // PUT /api/folders/:folderId/items/:itemId - Update item in folder
 router.put(
   "/:folderId/items/:itemId",
-  validateObjectId,
-  validateItemData,
+  [verifyToken, validateObjectId, validateItemData],
   folderController.updateItem
 );
 
 // DELETE /api/folders/:folderId/items/:itemId - Delete item from folder
 router.delete(
   "/:folderId/items/:itemId",
-  validateObjectId,
+  [verifyToken, validateObjectId],
+
   folderController.deleteItem
 );
 
 // DELETE /api/folders/:id - Delete folder
-router.delete("/:id", validateObjectId, folderController.deleteFolder);
+router.delete(
+  "/:id",
+  [verifyToken, validateObjectId],
+  validateObjectId,
+  folderController.deleteFolder
+);
 
 // Search folders by name
-router.get("/search/:query", async (req, res) => {
+router.get("/search/:query", [verifyToken], async (req, res) => {
   try {
     const folders = await Folder.find({
       name: { $regex: req.params.query, $options: "i" },
@@ -97,7 +104,7 @@ router.get("/search/:query", async (req, res) => {
 });
 
 // Get folder statistics
-router.get("/:id/stats", validateObjectId, async (req, res) => {
+router.get("/:id/stats", [verifyToken, validateObjectId], async (req, res) => {
   try {
     const folder = await Folder.findById(req.params.id);
     if (!folder) {

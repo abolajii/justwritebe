@@ -190,6 +190,7 @@ const addDeposit = async () => {
 
   await UserSignal.deleteMany();
   await DailySignal.deleteMany();
+  await Signal.deleteMany();
 
   // signal.startingCapital = 14.215;
 

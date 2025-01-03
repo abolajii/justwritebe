@@ -26,14 +26,12 @@ exports.createFutureAccount = async (req, res) => {
         .json({ error: "User already has signals configured!" });
     }
 
-    // Calculate previous capital
     const results = await getPreviousCapital(
       startingCapital,
       numberOfSignals,
       totalSignals
     );
 
-    // Create signals based on reminder settings
     const createdSignals = [];
     for (const setting of reminderSettings) {
       // Check if signal already exists for this time slot
@@ -62,7 +60,7 @@ exports.createFutureAccount = async (req, res) => {
       startingCapital,
       reminder,
       numberOfSignals: totalSignals,
-      signals: createdSignals.map((signal) => signal._id), // Store references to Signal documents
+      signals: createdSignals.map((signal) => signal._id),
     });
 
     // Update user's country
@@ -85,7 +83,11 @@ exports.createFutureAccount = async (req, res) => {
       data: response,
     });
   } catch (error) {
-    console.error("Create Future Account Error:", error);
+    console.log("Error details:", {
+      message: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+    });
     res.status(500).json({
       success: false,
       error: "Failed to create future account",
@@ -229,6 +231,7 @@ exports.getUserDailySignal = async (req, res) => {
     if (existingSignals.success) {
       return res.status(200).json(existingSignals);
     }
+    console.log(userSignal);
 
     // 3. Create new daily signals
     const result = await createDailySignals(userId, userSignal.data);
