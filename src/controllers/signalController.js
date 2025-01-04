@@ -248,9 +248,9 @@ exports.getUserDailySignal = async (req, res) => {
 
 // Helper Functions
 async function getUserSignalData(userId) {
-  const userSignal = await UserSignal.findOne({ user: userId }).populate(
-    "signals"
-  );
+  const userSignal = await UserSignal.findOne({ user: userId })
+    .populate("signals")
+    .sort({ createdAt: -1 });
 
   if (!userSignal) {
     return {
