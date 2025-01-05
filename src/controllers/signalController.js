@@ -323,7 +323,6 @@ async function createDailySignals(userId, userSignal) {
 }
 
 exports.updateBalance = async (req, res) => {
-  // Constants
   const SIGNAL_PROFIT_PERCENTAGE = 0.89;
   const INVESTMENT_PERCENTAGE = 0.01;
 
@@ -337,6 +336,7 @@ exports.updateBalance = async (req, res) => {
       user: userId,
       _id: signalId,
     });
+
     if (!dailySignal) {
       return res.status(404).json({
         success: false,
@@ -364,21 +364,21 @@ exports.updateBalance = async (req, res) => {
     });
 
     // 4. Update current signal
-    const updatedSignal = await DailySignal.findByIdAndUpdate(
+    await DailySignal.findByIdAndUpdate(
       signalId,
       {
         recentCapital: calculations.newCapital,
-        profit: calculations.profitPercentageFormatted,
+        profit: calculations.profitAmount,
         status: "completed",
         updatedAt: new Date(),
       },
       { new: true }
     );
 
-    // 5. Update next signal's prevCapital
-    await updateNextSignal(
+    // 5. Update next signal's prevCapital and get all signals
+    const { nextSignalResult, allSignals } = await updateNextSignalAndGetAll(
       userId,
-      dailySignal.createdAt,
+      signalId,
       calculations.newCapital
     );
 
@@ -393,12 +393,19 @@ exports.updateBalance = async (req, res) => {
       throw new Error("User signal not found while updating starting capital");
     }
 
+    const response = formatResponse(dailySignal, calculations);
+
     return res.status(200).json({
       success: true,
-      data: formatResponse(dailySignal, calculations),
+      data: {
+        ...response,
+        nextSignalStatus: nextSignalResult.exists
+          ? "Updated next signal with new capital"
+          : "No next signal to update - this was the latest signal",
+        allSignals: allSignals,
+      },
     });
   } catch (error) {
-    console.error("Error updating balance:", error);
     return res.status(500).json({
       success: false,
       message: "Error updating balance",
@@ -407,7 +414,77 @@ exports.updateBalance = async (req, res) => {
   }
 };
 
-// Helper Functions
+async function updateNextSignalAndGetAll(userId, currentSignalId, newCapital) {
+  try {
+    // Get all signals for the user, sorted by creation date and name
+    const allSignals = await DailySignal.find({ user: userId })
+      .sort({ createdAt: 1, name: 1 })
+      .lean();
+
+    // Find the index of the current signal
+    const currentIndex = allSignals.findIndex(
+      (signal) => signal._id.toString() === currentSignalId
+    );
+
+    // Check if there's a next signal
+    const nextSignal =
+      currentIndex < allSignals.length - 1
+        ? allSignals[currentIndex + 1]
+        : null;
+
+    // If there's a next signal, update it
+    let updatedNextSignal = null;
+    if (nextSignal) {
+      updatedNextSignal = await DailySignal.findByIdAndUpdate(
+        nextSignal._id,
+        {
+          prevCapital: newCapital,
+          updatedAt: new Date(),
+        },
+        { new: true }
+      );
+    }
+
+    if (!updatedNextSignal) {
+      return {
+        nextSignalResult: {
+          exists: false,
+          message: "No next signal found - this is the latest signal",
+        },
+        allSignals: allSignals.map((signal) => ({
+          id: signal._id,
+          createdAt: signal.createdAt,
+          status: signal.status,
+          prevCapital: signal.prevCapital,
+          recentCapital: signal.recentCapital,
+          profit: signal.profit,
+          name: signal.name,
+          time: signal.time,
+        })),
+      };
+    }
+
+    return {
+      nextSignalResult: {
+        exists: true,
+        signal: updatedNextSignal,
+      },
+      allSignals: allSignals.map((signal) => ({
+        id: signal._id,
+        createdAt: signal.createdAt,
+        status: signal.status,
+        prevCapital: signal.prevCapital,
+        recentCapital: signal.recentCapital,
+        profit: signal.profit,
+        name: signal.name,
+        time: signal.time,
+      })),
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
 function calculateBalances({
   prevCapital,
   investmentPercentage,
@@ -425,25 +502,6 @@ function calculateBalances({
     newCapital,
     profitPercentageFormatted: `${(profitPercentage * 100).toFixed(2)}`,
   };
-}
-
-async function updateNextSignal(userId, currentSignalDate, newCapital) {
-  const nextSignal = await DailySignal.findOneAndUpdate(
-    {
-      user: userId,
-      createdAt: { $gt: currentSignalDate },
-    },
-    {
-      prevCapital: newCapital,
-      updatedAt: new Date(),
-    },
-    {
-      sort: { createdAt: 1 },
-      new: true,
-    }
-  );
-
-  return nextSignal;
 }
 
 function formatResponse(dailySignal, calculations) {

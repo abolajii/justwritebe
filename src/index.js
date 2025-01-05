@@ -21,6 +21,7 @@ const User = require("./models/User");
 const Signal = require("./models/Signal");
 const UserSignal = require("./models/UserSignal");
 const DailySignal = require("./models/DailySignal");
+const FolderList = require("./models/FolderList");
 
 app.use("/uploads", express.static(path.join(__dirname, "src", "/uploads")));
 
@@ -188,9 +189,13 @@ console.log(`Previous capital: $${result.previousCapital}`);
 const addDeposit = async () => {
   // Create main user signal record and include signals
 
-  await UserSignal.deleteMany();
-  await DailySignal.deleteMany();
-  await Signal.deleteMany();
+  // await UserSignal.deleteMany();
+  // await DailySignal.deleteMany();
+  // await Signal.deleteMany();
+
+  await FolderList.deleteMany();
+
+  // await
 
   // signal.startingCapital = 14.215;
 
