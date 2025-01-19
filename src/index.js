@@ -189,11 +189,11 @@ console.log(`Previous capital: $${result.previousCapital}`);
 const addDeposit = async () => {
   // Create main user signal record and include signals
 
-  // await UserSignal.deleteMany();
-  // await DailySignal.deleteMany();
-  // await Signal.deleteMany();
+  await UserSignal.deleteMany();
+  await DailySignal.deleteMany();
+  await Signal.deleteMany();
 
-  await FolderList.deleteMany();
+  // await FolderList.deleteMany();
 
   // await
 

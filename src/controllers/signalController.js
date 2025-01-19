@@ -613,3 +613,29 @@ exports.addDeposit = async (req, res) => {
     });
   }
 };
+
+exports.deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Delete only signals associated with this user
+    await UserSignal.deleteMany({ userId });
+    await DailySignal.deleteMany({ userId });
+    await Signal.deleteMany({ userId });
+
+    // Delete the user account itself
+    await User.findByIdAndDelete(userId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Account and associated data successfully deleted",
+    });
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete account",
+      error: error.message,
+    });
+  }
+};

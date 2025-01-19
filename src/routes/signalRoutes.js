@@ -31,4 +31,6 @@ router.put("/signal/:id", [verifyToken], authController.updateBalance);
 
 router.put("/balance", [verifyToken], authController.addDeposit);
 
+router.delete("/delete", [verifyToken], authController.deleteAccount);
+
 module.exports = router;
